@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Vintamie Assistant",
+  "version": "1.0",
+  "description": "Fülle deine Vinted und Kleinanzeigen Inserate automatisch aus dem Vintamie-Dashboard aus.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:8000/*",
+    "https://*.vinted.de/*",
+    "https://*.kleinanzeigen.de/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.vinted.de/items/new*",
+        "https://*.vinted.fr/items/new*",
+        "https://*.kleinanzeigen.de/p-anzeige-aufgeben.html*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}
