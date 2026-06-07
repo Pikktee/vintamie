@@ -15,6 +15,8 @@ if DATABASE_URL:
     # SQLAlchemy requires postgresql:// instead of postgres:// (injected by Railway)
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    elif DATABASE_URL.startswith("sqlite"):
+        connect_args = {"check_same_thread": False}
 else:
     # Local SQLite fallback
     DATABASE_URL = "sqlite:///./vintamie.db"
