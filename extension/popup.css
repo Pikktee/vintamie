@@ -4,7 +4,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background-color: #0e121a;
   color: #f8fafc;
-  width: 300px;
+  width: 320px;
 }
 
 .popup-container {
@@ -47,12 +47,32 @@ body {
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
-.content p {
-  font-size: 13px;
-  line-height: 1.5;
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
   color: #94a3b8;
-  margin-top: 0;
-  margin-bottom: 16px;
+  margin-bottom: 4px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  background-color: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  color: #f8fafc;
+  box-sizing: border-box;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #09b0b7;
 }
 
 .actions {
@@ -70,6 +90,7 @@ body {
   border-radius: 6px;
   text-decoration: none;
   transition: all 0.2s ease;
+  box-sizing: border-box;
 }
 
 .btn-primary {
@@ -89,4 +110,11 @@ body {
 
 .btn-secondary:hover {
   background-color: rgba(255, 255, 255, 0.1);
+}
+
+.error-text {
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  padding: 8px;
+  border-radius: 4px;
 }

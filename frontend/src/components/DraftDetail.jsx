@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Save, Copy, Check, ExternalLink, Smartphone, Monitor } from 'lucide-react';
-import { updateDraft, getImageUrl } from '../utils/api';
+import { updateDraft, getImageUrl, getAuthToken } from '../utils/api';
 
 export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
   const [title, setTitle] = useState(draft.title || '');
@@ -62,8 +62,8 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
 
   const handlePostInApp = (platform) => {
     if (isAndroidApp) {
-      // Call Android JavascriptInterface
-      window.VintamieBridge.postToPlatform(draft.id, platform);
+      // Call Android JavascriptInterface with JWT Token
+      window.VintamieBridge.postToPlatform(draft.id, platform, getAuthToken());
     }
   };
 
@@ -235,6 +235,61 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
               </div>
             )}
           </div>
+
+          {/* Price Comparison Sources Panel */}
+          {draft.sources && (
+            <div className="glass-panel" style={{ padding: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', fontFamily: 'var(--font-title)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                Vergleichsangebote (Quellen)
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {(() => {
+                  try {
+                    const parsedSources = JSON.parse(draft.sources);
+                    if (!parsedSources || parsedSources.length === 0) {
+                      return <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Keine Vergleichsdaten gefunden.</p>;
+                    }
+                    return parsedSources.map((src, idx) => (
+                      <a 
+                        key={idx}
+                        href={src.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="glass-card"
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '0.75rem 1rem',
+                          textDecoration: 'none',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.85rem',
+                          border: '1px solid var(--glass-border)'
+                        }}
+                      >
+                        <span style={{ 
+                          whiteSpace: 'nowrap', 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis', 
+                          flexGrow: 1, 
+                          paddingRight: '0.5rem',
+                          textAlign: 'left'
+                        }}>
+                          {src.title}
+                        </span>
+                        <span style={{ fontWeight: 'bold', color: 'var(--primary)', flexShrink: 0 }}>
+                          {src.price} €
+                        </span>
+                      </a>
+                    ));
+                  } catch (e) {
+                    return <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Vergleichsdaten beschädigt.</p>;
+                  }
+                })()}
+              </div>
+            </div>
+          )}
+
         </div>
 
         {/* Right Section: Form Inputs */}

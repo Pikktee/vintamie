@@ -112,19 +112,35 @@ async function openOverlay() {
   // Close event listener
   document.getElementById("vintamie-close").addEventListener("click", closeOverlay);
 
-  // Fetch drafts from backend
-  try {
-    const response = await fetch("http://localhost:8000/api/drafts");
-    if (!response.ok) throw new Error();
-    drafts = await response.json();
-    renderDraftsList();
-  } catch (err) {
-    document.getElementById("vintamie-list-container").innerHTML = `
-      <div style="color:#fca5a5; font-size:13px; background:rgba(239,68,68,0.1); padding:10px; border-radius:6px; border:1px solid rgba(239,68,68,0.2)">
-        Fehler beim Verbinden mit dem Backend (localhost:8000). Bitte stelle sicher, dass der Vintamie Server läuft.
-      </div>
-    `;
-  }
+  // Fetch drafts from backend using token from extension storage
+  chrome.storage.local.get("vintamie_token", async (data) => {
+    const token = data.vintamie_token;
+    if (!token) {
+      document.getElementById("vintamie-list-container").innerHTML = `
+        <div style="color:#f59e0b; font-size:13px; background:rgba(245,158,11,0.1); padding:10px; border-radius:6px; border:1px solid rgba(245,158,11,0.2); line-height: 1.4;">
+          Bitte melde dich zuerst über das Vintamie-Erweiterungssymbol in deiner Browser-Leiste an.
+        </div>
+      `;
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:8000/api/drafts", {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (!response.ok) throw new Error();
+      drafts = await response.json();
+      renderDraftsList();
+    } catch (err) {
+      document.getElementById("vintamie-list-container").innerHTML = `
+        <div style="color:#fca5a5; font-size:13px; background:rgba(239,68,68,0.1); padding:10px; border-radius:6px; border:1px solid rgba(239,68,68,0.2); line-height: 1.4;">
+          Fehler beim Laden der Entwürfe. Bitte stelle sicher, dass der Vintamie Server läuft und deine Sitzung aktiv ist.
+        </div>
+      `;
+    }
+  });
 }
 
 // Render the list of drafts inside the drawer

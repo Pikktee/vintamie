@@ -109,18 +109,19 @@ class MainActivity : AppCompatActivity() {
     // Javascript Interface definition
     inner class VintamieBridge {
         @JavascriptInterface
-        fun postToPlatform(draftId: Int, platform: String) {
+        fun postToPlatform(draftId: Int, platform: String, token: String) {
             runOnUiThread {
                 Toast.makeText(this@MainActivity, "Lade Entwurf #$draftId...", Toast.LENGTH_SHORT).show()
-                fetchDraftAndPrepare(draftId, platform)
+                fetchDraftAndPrepare(draftId, platform, token)
             }
         }
     }
 
     // Fetch draft metadata and photo from local backend
-    private fun fetchDraftAndPrepare(draftId: Int, platform: String) {
+    private fun fetchDraftAndPrepare(draftId: Int, platform: String, token: String) {
         val request = Request.Builder()
             .url("$backendUrl/api/drafts/$draftId")
+            .header("Authorization", "Bearer $token")
             .build()
 
         okHttpClient.newCall(request).enqueue(object : Callback {

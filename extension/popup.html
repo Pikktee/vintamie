@@ -9,12 +9,32 @@
   <div class="popup-container">
     <div class="header">
       <span class="logo-text">✨ Vintamie</span>
-      <span class="status-badge connected" id="status">Verbunden</span>
+      <span class="status-badge disconnected" id="status">Nicht angemeldet</span>
     </div>
     
-    <div class="content">
-      <p>Öffne ein Verkaufsformular auf Vinted oder Kleinanzeigen. Ein <strong>"Vintamie Befüllen"</strong>-Button erscheint direkt auf der Seite.</p>
-      
+    <!-- Login Form -->
+    <div id="login-view" class="view">
+      <form id="login-form">
+        <div class="form-group">
+          <label for="email">E-Mail</label>
+          <input type="email" id="email" required placeholder="name@beispiel.de">
+        </div>
+        <div class="form-group">
+          <label for="password">Passwort</label>
+          <input type="password" id="password" required placeholder="••••••••">
+        </div>
+        <div id="error-message" class="error-text" style="display:none; margin-bottom:10px; font-size:12px; color:#fca5a5;"></div>
+        <button type="submit" class="btn btn-primary" style="width:100%; border:none; cursor:pointer;">Einloggen</button>
+      </form>
+    </div>
+
+    <!-- Connected View -->
+    <div id="connected-view" class="view" style="display:none;">
+      <p style="margin-top:0;">Fülle deine Inserate automatisch aus den Entwürfen deines Dashboards aus.</p>
+      <div style="font-size:12px; color:#94a3b8; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+        <span id="user-email"></span>
+        <button id="logout-btn" style="background:transparent; border:none; color:#09b0b7; cursor:pointer; text-decoration:underline; font-weight:bold; font-size:12px; padding:0;">Abmelden</button>
+      </div>
       <div class="actions">
         <a href="http://localhost:5173" target="_blank" class="btn btn-primary">Dashboard öffnen</a>
         <a href="https://www.vinted.de/items/new" target="_blank" class="btn btn-secondary">Vinted aufrufen</a>

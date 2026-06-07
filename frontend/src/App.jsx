@@ -1,21 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, FolderHeart, Sparkles, Settings } from 'lucide-react';
+import { Camera, FolderHeart, Sparkles, LogOut, User } from 'lucide-react';
 import CameraCapture from './components/CameraCapture';
 import DraftList from './components/DraftList';
 import DraftDetail from './components/DraftDetail';
 import AnalysisLoader from './components/AnalysisLoader';
-import { getDrafts, deleteDraft } from './utils/api';
+import Login from './components/Login';
+import { getDrafts, deleteDraft, isAuthenticated, setAuthToken, getMe } from './utils/api';
 
 export default function App() {
+  const [token, setToken] = useState(null);
+  const [user, setUser] = useState(null);
   const [view, setView] = useState('capture'); // 'capture', 'list', 'detail', 'analyzing'
   const [drafts, setDrafts] = useState([]);
   const [selectedDraft, setSelectedDraft] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Fetch drafts from database on mount
+  // Check auth state on mount
   useEffect(() => {
-    fetchDrafts();
+    const isAuth = isAuthenticated();
+    if (isAuth) {
+      setToken(localStorage.getItem('vintamie_token'));
+      fetchCurrentUser();
+      fetchDrafts();
+    }
   }, []);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const u = await getMe();
+      setUser(u);
+    } catch (err) {
+      console.error(err);
+      handleLogout();
+    }
+  };
 
   const fetchDrafts = async () => {
     setLoading(true);
@@ -29,10 +47,26 @@ export default function App() {
     }
   };
 
+  const handleLoginSuccess = (newToken) => {
+    setAuthToken(newToken);
+    setToken(newToken);
+    fetchCurrentUser();
+    fetchDrafts();
+    setView('capture');
+  };
+
+  const handleLogout = () => {
+    setAuthToken(null);
+    setToken(null);
+    setUser(null);
+    setDrafts([]);
+    setSelectedDraft(null);
+    setView('capture');
+  };
+
   const handleDeleteDraft = async (id) => {
     try {
       await deleteDraft(id);
-      // Remove from state
       setDrafts((prev) => prev.filter((d) => d.id !== id));
       if (selectedDraft && selectedDraft.id === id) {
         setSelectedDraft(null);
@@ -62,6 +96,15 @@ export default function App() {
     setDrafts((prev) => prev.map((d) => (d.id === updatedDraft.id ? updatedDraft : d)));
     setSelectedDraft(updatedDraft);
   };
+
+  // If not authenticated, render Login/Register
+  if (!token) {
+    return (
+      <div className="container" style={{ padding: '2rem 1rem' }}>
+        <Login onLoginSuccess={handleLoginSuccess} />
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', paddingBottom: '70px' }}>
@@ -97,10 +140,42 @@ export default function App() {
           </div>
         </div>
 
-        {/* Small version tag */}
-        <span style={{ fontSize: '0.75rem', background: 'rgba(255,255,255,0.03)', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid var(--glass-border)', color: 'var(--text-secondary)' }}>
-          v1.0.0
-        </span>
+        {/* User profile & Logout */}
+        {user && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <span style={{ 
+              fontSize: '0.75rem', 
+              background: 'rgba(255,255,255,0.03)', 
+              padding: '0.4rem 0.8rem', 
+              borderRadius: '99px', 
+              border: '1px solid var(--glass-border)', 
+              color: 'var(--text-secondary)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem'
+            }}>
+              <User size={12} />
+              {user.email}
+            </span>
+            <button 
+              onClick={handleLogout}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                fontSize: '0.75rem',
+                fontWeight: '600'
+              }}
+              title="Abmelden"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Main Content Area */}
