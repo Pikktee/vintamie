@@ -449,6 +449,107 @@ class MainActivity : AppCompatActivity() {
                     return true;
                 }
 
+                // --- Generic attribute (Zusatzfelder) matching --------------------
+                function norm(s) {
+                    return (s == null ? '' : String(s)).toLowerCase()
+                        .replace(/[^a-z0-9äöüß]+/g, ' ').trim();
+                }
+
+                // Collect label-ish text describing a form control
+                function labelTextFor(el) {
+                    let txt = '';
+                    if (el.id) {
+                        const lab = document.querySelector("label[for='" + el.id + "']");
+                        if (lab) txt += ' ' + lab.textContent;
+                    }
+                    txt += ' ' + (el.getAttribute('aria-label') || '');
+                    txt += ' ' + (el.getAttribute('name') || '');
+                    txt += ' ' + (el.getAttribute('placeholder') || '');
+                    let node = el.parentElement;
+                    let depth = 0;
+                    while (node && depth < 3) {
+                        if (node.tagName === 'LABEL' || node.tagName === 'LEGEND') {
+                            txt += ' ' + node.textContent;
+                        }
+                        const lab = node.querySelector ? node.querySelector('label, legend') : null;
+                        if (lab) txt += ' ' + lab.textContent;
+                        node = node.parentElement; depth++;
+                    }
+                    return norm(txt);
+                }
+
+                function pickOption(sel, value) {
+                    const nv = norm(value);
+                    if (!nv) return null;
+                    for (const opt of sel.options) {
+                        if (norm(opt.textContent) === nv) return opt;
+                    }
+                    for (const opt of sel.options) {
+                        const ot = norm(opt.textContent);
+                        if (ot && opt.value && (ot.includes(nv) || nv.includes(ot))) return opt;
+                    }
+                    return null;
+                }
+
+                function parseAttributes() {
+                    let a = draft.attributes;
+                    if (!a) return {};
+                    if (typeof a === 'string') { try { a = JSON.parse(a); } catch (e) { return {}; } }
+                    return (a && typeof a === 'object') ? a : {};
+                }
+
+                function fillAttributes() {
+                    const attrs = parseAttributes();
+                    const entries = Object.keys(attrs).map(function(k){ return [k, attrs[k]]; });
+                    if (entries.length === 0) return;
+
+                    const selects = Array.from(document.querySelectorAll('select'));
+                    const texts = Array.from(document.querySelectorAll("input[type='text'], input:not([type])"));
+
+                    for (const pair of entries) {
+                        const label = norm(pair[0]);
+                        const value = pair[1] == null ? '' : String(pair[1]);
+                        if (!label || !value) continue;
+
+                        // Special-case Kleinanzeigen shipping toggle (often a checkbox)
+                        if (label.indexOf('versand') !== -1) {
+                            const wantsShip = norm(value).indexOf('moglich') !== -1 || norm(value).indexOf('versand') !== -1;
+                            const boxes = document.querySelectorAll("input[type='checkbox'], input[type='radio']");
+                            let toggled = false;
+                            for (const b of boxes) {
+                                if (labelTextFor(b).indexOf('versand') !== -1) {
+                                    if (b.checked !== wantsShip) { b.click(); }
+                                    toggled = true;
+                                }
+                            }
+                            if (toggled) continue;
+                        }
+
+                        let done = false;
+                        for (const sel of selects) {
+                            if (sel.__vintamieKnown) continue;
+                            if (labelTextFor(sel).indexOf(label) === -1) continue;
+                            const opt = pickOption(sel, value);
+                            if (opt) {
+                                sel.value = opt.value;
+                                sel.__vintamieKnown = true;
+                                sel.dispatchEvent(new Event('change', { bubbles: true }));
+                                done = true;
+                                break;
+                            }
+                        }
+                        if (done) continue;
+
+                        for (const inp of texts) {
+                            if (inp.__vintamieKnown) continue;
+                            if (labelTextFor(inp).indexOf(label) === -1) continue;
+                            setVal(inp, value);
+                            inp.__vintamieKnown = true;
+                            break;
+                        }
+                    }
+                }
+
                 let fillAttempts = 0;
                 function fill() {
                     fillAttempts++;
@@ -471,6 +572,9 @@ class MainActivity : AppCompatActivity() {
 
                     setVal(title, draft.title);
                     setVal(desc, draft.description);
+                    if (title) title.__vintamieKnown = true;
+                    if (desc) desc.__vintamieKnown = true;
+                    if (price) price.__vintamieKnown = true;
                     if (draft.price !== undefined && draft.price !== null) {
                         setVal(price, String(Math.round(draft.price)));
                     }
@@ -490,18 +594,25 @@ class MainActivity : AppCompatActivity() {
                             const postcode = document.querySelector("#postad-postcode") || document.querySelector("input[name='postcode']") || document.querySelector("input[id*='postcode']") || document.querySelector("input[placeholder*='PLZ']");
                             if (postcode) {
                                 setVal(postcode, userZip);
+                                postcode.__vintamieKnown = true;
                                 postcode.dispatchEvent(new Event('blur', { bubbles: true }));
                             }
                         }
+                        // Category-specific attributes ("Zusatzfelder"). They may render
+                        // slightly after the core fields, so attempt a few times.
+                        fillAttributes();
+                        setTimeout(fillAttributes, 1500);
+                        setTimeout(fillAttributes, 3500);
                     }
 
                     // Trigger the native file chooser to upload the draft photo.
                     const fileInput = document.querySelector("input[type='file']");
                     if (fileInput) { fileInput.click(); }
 
-                    // Give the upload time to process, then submit if requested.
+                    // Give the image upload and attribute fills time to settle, then
+                    // submit if requested.
                     if (autoSubmit) {
-                        setTimeout(trySubmit, 6000);
+                        setTimeout(trySubmit, 8000);
                     }
                 }
 
