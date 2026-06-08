@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, FolderHeart, Sparkles, LogOut, User, Cloud, HelpCircle } from 'lucide-react';
+import { Camera, FolderHeart, Sparkles, User, Cloud, HelpCircle } from 'lucide-react';
 import CameraCapture from './components/CameraCapture';
 import DraftList from './components/DraftList';
 import DraftDetail from './components/DraftDetail';
@@ -357,16 +357,6 @@ export default function App() {
           >
             <HelpCircle size={18} />
           </button>
-
-          {view === 'settings' && (
-            <button 
-              className="logout-icon-btn" 
-              onClick={handleLogout} 
-              title="Abmelden"
-            >
-              <LogOut size={18} />
-            </button>
-          )}
         </div>
       </header>
 
