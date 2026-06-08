@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Sparkles, Check, Info } from 'lucide-react';
+import { ArrowLeft, Sparkles, Info } from 'lucide-react';
 
 export default function AnalysisSpecs({ images = [], onBack, onStartAnalysis }) {
   const [condition, setCondition] = useState('Automatisch');
@@ -107,68 +107,50 @@ export default function AnalysisSpecs({ images = [], onBack, onStartAnalysis }) 
             Zustand des Artikels
           </label>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {conditions.map((item) => {
-              const isSelected = condition === item.value;
-              return (
-                <div
-                  key={item.value}
-                  onClick={() => setCondition(item.value)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    padding: '0.85rem 1rem',
-                    background: isSelected 
-                      ? 'linear-gradient(135deg, rgba(9, 176, 183, 0.08) 0%, rgba(236, 72, 153, 0.03) 100%)' 
-                      : 'rgba(25, 30, 42, 0.3)',
-                    border: isSelected 
-                      ? '1px solid rgba(9, 176, 183, 0.45)' 
-                      : '1px solid rgba(255, 255, 255, 0.04)',
-                    borderRadius: 'var(--radius-md)',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: isSelected ? '0 0 15px rgba(9, 176, 183, 0.06)' : 'none',
-                    transform: isSelected ? 'translateX(2px)' : 'none'
-                  }}
-                >
-                  {/* Custom Check Circle */}
-                  <div style={{
-                    width: '18px',
-                    height: '18px',
-                    borderRadius: '50%',
-                    border: isSelected ? '1px solid var(--primary)' : '1px solid rgba(255, 255, 255, 0.15)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: isSelected ? 'var(--primary)' : 'transparent',
-                    color: '#000',
-                    transition: 'all 0.2s ease',
-                    flexShrink: 0
-                  }}>
-                    {isSelected && <Check size={12} strokeWidth={3} />}
-                  </div>
-
-                  <div style={{ flexGrow: 1 }}>
-                    <div style={{ 
-                      fontSize: '0.875rem', 
-                      fontWeight: isSelected ? '600' : '500', 
-                      color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.35rem'
-                    }}>
-                      {item.label}
-                      {item.value === 'Automatisch' && <Sparkles size={12} style={{ color: 'var(--primary)' }} />}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem', lineHeight: '1.3' }}>
-                      {item.desc}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <select
+            value={condition}
+            onChange={(e) => setCondition(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.85rem 1rem',
+              background: 'rgba(25, 30, 42, 0.35)',
+              border: '1px solid rgba(255, 255, 255, 0.05)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--text-primary)',
+              fontSize: '0.875rem',
+              outline: 'none',
+              cursor: 'pointer',
+              boxSizing: 'border-box',
+              appearance: 'none',
+              backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238892b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 1rem center',
+              backgroundSize: '1.2em',
+              paddingRight: '2.5rem',
+              transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = 'rgba(9, 176, 183, 0.4)';
+              e.target.style.boxShadow = '0 0 10px rgba(9, 176, 183, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+              e.target.style.boxShadow = 'none';
+            }}
+          >
+            {conditions.map((item) => (
+              <option 
+                key={item.value} 
+                value={item.value} 
+                style={{ 
+                  background: '#141924', 
+                  color: 'var(--text-primary)' 
+                }}
+              >
+                {item.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Custom Details Section */}
