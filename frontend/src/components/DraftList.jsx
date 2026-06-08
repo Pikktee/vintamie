@@ -17,7 +17,11 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
   if (drafts.length === 0) {
     return (
       <div className="fade-in onboarding-wrapper">
-        <div className="glass-panel onboarding-container">
+        <div className="onboarding-hero">
+          <div className="onboarding-logo-glow">
+            <img src="/favicon.svg" alt="Vintamie Logo" className="onboarding-logo-img" />
+          </div>
+          
           <div className="onboarding-welcome-badge">
             <Sparkles size={14} />
             <span>Willkommen bei Vintamie</span>
@@ -35,21 +39,27 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
           </p>
           
           <div className="onboarding-arrow-container">
-            <svg className="onboarding-arrow-svg" viewBox="0 0 40 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg className="onboarding-arrow-svg" viewBox="0 0 24 40" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
-                d="M20,5 Q35,25 20,48"
-                stroke="var(--primary)"
-                strokeWidth="3.5"
+                d="M12,0 L12,38"
+                stroke="url(#arrow-grad)"
+                strokeWidth="3"
                 strokeLinecap="round"
                 className="onboarding-arrow-path"
               />
               <path
-                d="M12,40 L20,48 L27,39"
+                d="M5,31 L12,38 L19,31"
                 stroke="var(--primary)"
-                strokeWidth="3.5"
+                strokeWidth="3"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
+              <defs>
+                <linearGradient id="arrow-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="rgba(9, 176, 183, 0.1)" />
+                  <stop offset="100%" stopColor="var(--primary)" />
+                </linearGradient>
+              </defs>
             </svg>
           </div>
         </div>

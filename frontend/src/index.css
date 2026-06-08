@@ -332,6 +332,8 @@ select.form-control {
   -webkit-overflow-scrolling: touch;
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Bottom Navigation (Tinder PWA Flat Style) */
@@ -1168,62 +1170,88 @@ select.form-control {
 }
 
 /* Onboarding Premium UI */
+.empty-state-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  box-sizing: border-box;
+}
+
 .onboarding-wrapper {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   width: 100%;
-  max-width: 600px;
-  margin: 0.5rem auto;
-  padding: 0 1rem;
+  flex: 1;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 0.5rem 0;
+  box-sizing: border-box;
 }
 
-.onboarding-container {
+.onboarding-hero {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 2rem 1.5rem;
-  border-radius: var(--radius-lg);
-  position: relative;
-  overflow: hidden;
   width: 100%;
-  margin-bottom: 0.5rem;
+  margin-top: auto;
+  margin-bottom: auto;
+  padding: 1rem 0;
 }
 
-.onboarding-container::before {
-  content: '';
-  position: absolute;
-  top: -50px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
-  z-index: 0;
-  pointer-events: none;
+.onboarding-logo-glow {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(9, 176, 183, 0.18) 0%, rgba(236, 72, 153, 0.04) 55%, transparent 70%);
+}
+
+.onboarding-logo-img {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  animation: floatLogo 4s ease-in-out infinite;
+}
+
+@keyframes floatLogo {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 0 15px rgba(9, 176, 183, 0.3));
+  }
+  50% {
+    transform: translateY(-8px) scale(1.03);
+    filter: drop-shadow(0 0 25px rgba(236, 72, 153, 0.45));
+  }
 }
 
 .onboarding-welcome-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(9, 176, 183, 0.1);
-  border: 1px solid rgba(9, 176, 183, 0.2);
+  background: rgba(9, 176, 183, 0.08);
+  border: 1px solid rgba(9, 176, 183, 0.18);
   color: var(--primary);
-  padding: 0.4rem 1rem;
+  padding: 0.35rem 0.9rem;
   border-radius: 99px;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   z-index: 1;
-  box-shadow: 0 0 15px rgba(9, 176, 183, 0.15);
+  box-shadow: 0 0 15px rgba(9, 176, 183, 0.08);
 }
 
 .onboarding-title {
-  font-size: 1.75rem;
+  font-size: 1.6rem;
   font-weight: 800;
   line-height: 1.25;
   margin-bottom: 0.75rem;
@@ -1231,102 +1259,16 @@ select.form-control {
   background: linear-gradient(135deg, var(--text-primary) 30%, var(--primary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  letter-spacing: -0.02em;
 }
 
 .onboarding-subtitle {
   color: var(--text-secondary);
-  font-size: 0.95rem;
-  max-width: 460px;
-  margin-bottom: 0.5rem;
-  line-height: 1.6;
+  font-size: 0.9rem;
+  max-width: 420px;
+  margin-bottom: 0;
+  line-height: 1.55;
   z-index: 1;
-}
-
-.onboarding-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1.25rem;
-  width: 100%;
-  margin-bottom: 2.5rem;
-  z-index: 1;
-}
-
-@media (max-width: 640px) {
-  .onboarding-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-}
-
-.onboarding-card {
-  background: rgba(255, 255, 255, 0.015);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  padding: 1.5rem 1rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  height: 100%;
-}
-
-.onboarding-card:hover {
-  transform: translateY(-5px);
-  border-color: rgba(9, 176, 183, 0.3);
-  background: rgba(255, 255, 255, 0.03);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 0 15px var(--primary-glow);
-}
-
-.onboarding-icon-wrapper {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: rgba(9, 176, 183, 0.08);
-  border: 1px solid rgba(9, 176, 183, 0.15);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 1rem;
-  color: var(--primary);
-  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
-.onboarding-card:hover .onboarding-icon-wrapper {
-  transform: scale(1.15) rotate(8deg);
-  background: rgba(9, 176, 183, 0.15);
-  color: #fff;
-  border-color: var(--primary);
-  box-shadow: 0 0 15px rgba(9, 176, 183, 0.4);
-}
-
-.onboarding-card:nth-child(2):hover .onboarding-icon-wrapper {
-  color: var(--secondary);
-  background: rgba(236, 72, 153, 0.15);
-  border-color: var(--secondary);
-  box-shadow: 0 0 15px rgba(236, 72, 153, 0.4);
-}
-
-.onboarding-card:nth-child(3):hover .onboarding-icon-wrapper {
-  color: var(--warning);
-  background: rgba(245, 158, 11, 0.15);
-  border-color: var(--warning);
-  box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
-}
-
-.onboarding-card-title {
-  font-size: 1rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-  color: var(--text-primary);
-  font-family: var(--font-title);
-}
-
-.onboarding-card-desc {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  line-height: 1.4;
 }
 
 .onboarding-footer {
@@ -1336,16 +1278,18 @@ select.form-control {
   gap: 0.5rem;
   width: 100%;
   z-index: 1;
-  position: relative;
+  margin-top: auto;
+  padding-bottom: 0.5rem;
 }
 
 .onboarding-cta-text {
   font-family: var(--font-title);
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--primary);
   text-shadow: 0 0 12px var(--primary-glow);
-  max-width: 340px;
+  max-width: 320px;
+  text-align: center;
   line-height: 1.4;
   animation: pulseText 2s infinite alternate;
 }
@@ -1362,39 +1306,93 @@ select.form-control {
 }
 
 .onboarding-arrow-container {
-  height: 65px;
+  height: 45px;
   position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-top: 0.25rem;
+  margin-top: 0.5rem;
   width: 100%;
 }
 
 .onboarding-arrow-svg {
-  width: 45px;
-  height: 65px;
-  animation: arrowBounce 2.5s ease-in-out infinite;
-  filter: drop-shadow(0 0 8px rgba(9, 176, 183, 0.6));
+  width: 24px;
+  height: 40px;
+  animation: arrowBounce 2s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(9, 176, 183, 0.5));
 }
 
 .onboarding-arrow-path {
-  stroke-dasharray: 8, 4;
-  animation: drawPath 3s linear infinite;
+  stroke-dasharray: 6, 3;
+  animation: drawPath 2.5s linear infinite;
 }
 
 @keyframes arrowBounce {
   0%, 100% {
-    transform: translateY(0) scaleY(1);
+    transform: translateY(0);
   }
   50% {
-    transform: translateY(10px) scaleY(0.95);
+    transform: translateY(6px);
   }
 }
 
 @keyframes drawPath {
   to {
-    stroke-dashoffset: -20;
+    stroke-dashoffset: -18;
+  }
+}
+
+/* Landscape/Short Screen Optimization */
+@media (max-height: 580px), (orientation: landscape) and (max-height: 550px) {
+  .onboarding-wrapper {
+    justify-content: center;
+    padding: 0.25rem 0;
+  }
+
+  .onboarding-hero {
+    margin: 0;
+    padding: 0.25rem 0;
+  }
+
+  .onboarding-logo-glow {
+    width: 90px;
+    height: 90px;
+    margin-bottom: 0.75rem;
+  }
+
+  .onboarding-logo-img {
+    width: 50px;
+    height: 50px;
+  }
+
+  .onboarding-welcome-badge {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .onboarding-title {
+    font-size: 1.35rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .onboarding-subtitle {
+    font-size: 0.85rem;
+    max-width: 380px;
+  }
+
+  .onboarding-footer {
+    margin-top: 0.5rem;
+    padding-bottom: 0;
+  }
+
+  .onboarding-cta-text {
+    font-size: 0.85rem;
+    max-width: 340px;
+  }
+
+  .onboarding-arrow-container {
+    display: none; /* Hide arrow in compact heights and landscape views */
   }
 }
 

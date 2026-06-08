@@ -271,10 +271,13 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="app-main">
-        <div className="container" style={{ 
-          paddingTop: '1rem', 
-          paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' 
-        }}>
+        <div 
+          className={`container ${view === 'list' && drafts.length === 0 ? 'empty-state-container' : ''}`}
+          style={{ 
+            paddingTop: '1rem', 
+            paddingBottom: view === 'list' && drafts.length === 0 ? 'calc(85px + env(safe-area-inset-bottom, 0px))' : 'calc(80px + env(safe-area-inset-bottom, 0px))' 
+          }}
+        >
           {view === 'capture' && (
             <CameraCapture
               onAnalysisStart={handleAnalysisStart}
