@@ -247,14 +247,48 @@ export default function App() {
             <span>Entwürfe</span>
           </button>
 
-          {/* Center: Camera Capture */}
-          <button
-            onClick={() => setView('capture')}
-            className={`nav-tab-btn camera-tab ${view === 'capture' || view === 'analyzing' ? 'active' : ''}`}
-          >
-            <Camera size={20} />
-            <span>Kamera</span>
-          </button>
+          {/* Center: Floating round Camera button (FAB) */}
+          <div style={{
+            position: 'relative',
+            top: '-15px',
+            width: '70px',
+            height: '70px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 101,
+            flexShrink: 0
+          }}>
+            <button
+              onClick={() => setView('capture')}
+              style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, var(--primary) 0%, #068085 100%)',
+                border: '4px solid #0e121a',
+                color: '#000',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 20px rgba(9, 176, 183, 0.4)',
+                cursor: 'pointer',
+                transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease',
+                transform: view === 'capture' || view === 'analyzing' ? 'scale(1.15)' : 'scale(1)'
+              }}
+              title="Neue Aufnahme"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.2)';
+                e.currentTarget.style.boxShadow = '0 10px 25px rgba(9, 176, 183, 0.6)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = view === 'capture' || view === 'analyzing' ? 'scale(1.15)' : 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 8px 20px rgba(9, 176, 183, 0.4)';
+              }}
+            >
+              <Camera size={24} />
+            </button>
+          </div>
 
           {/* Right: Einstellungen */}
           <button

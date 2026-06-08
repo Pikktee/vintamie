@@ -4,7 +4,7 @@ import { uploadAndAnalyze } from '../utils/api';
 
 export default function CameraCapture({ onAnalysisStart, onAnalysisSuccess, onAnalysisError, initialError }) {
   const [selectedImages, setSelectedImages] = useState([]); // Array of { id, file, previewUrl }
-  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(true);
   const [facingMode, setFacingMode] = useState('environment'); // 'environment' or 'user'
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(initialError);
@@ -87,6 +87,7 @@ export default function CameraCapture({ onAnalysisStart, onAnalysisSuccess, onAn
     }
     if (newImages.length > 0) {
       setSelectedImages(prev => [...prev, ...newImages]);
+      setIsCameraActive(false); // Close camera stream to show dashboard preview grid
     } else {
       setError('Bitte wähle gültige Bilddateien aus.');
     }
@@ -183,6 +184,256 @@ export default function CameraCapture({ onAnalysisStart, onAnalysisSuccess, onAn
     }
   };
 
+  if (isCameraActive) {
+    return (
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: '#000',
+        zIndex: 50,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        {/* Hidden inputs */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleInputChange}
+          style={{ display: 'none' }}
+        />
+
+        {/* Live Video Feed */}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            background: '#000',
+            transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
+            zIndex: 1
+          }}
+        />
+
+        {/* Flash Overlay */}
+        {flash && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: '#fff',
+            opacity: 0.8,
+            zIndex: 10,
+            pointerEvents: 'none'
+          }} />
+        )}
+
+        {/* Floating Camera Actions Overlay (Positioned below top header height of ~56px) */}
+        <div style={{
+          position: 'absolute',
+          top: 'calc(70px + env(safe-area-inset-top, 0px))',
+          right: '1.25rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem',
+          zIndex: 15
+        }}>
+          <button
+            className="btn btn-secondary"
+            onClick={toggleFacingMode}
+            style={{ 
+              minHeight: 'auto', 
+              width: '40px',
+              height: '40px',
+              padding: 0, 
+              borderRadius: '50%', 
+              background: 'rgba(15, 18, 27, 0.65)', 
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              border: '1px solid var(--glass-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            title="Kamera wechseln"
+          >
+            <RotateCw size={18} style={{ color: '#fff' }} />
+          </button>
+          
+          <button
+            className="btn btn-secondary"
+            onClick={() => setIsCameraActive(false)}
+            style={{ 
+              minHeight: 'auto', 
+              width: '40px',
+              height: '40px',
+              padding: 0, 
+              borderRadius: '50%', 
+              background: 'rgba(15, 18, 27, 0.65)', 
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              border: '1px solid var(--glass-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            title="Kamera schließen"
+          >
+            <X size={18} style={{ color: '#fff' }} />
+          </button>
+        </div>
+
+        {/* Camera Controls Footer (Padded above bottom navigation bar height of ~65px) */}
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          width: '100%',
+          background: 'linear-gradient(to top, rgba(14, 18, 26, 0.95) 0%, rgba(14, 18, 26, 0.5) 60%, rgba(14, 18, 26, 0) 100%)',
+          padding: '1.5rem 1rem calc(80px + env(safe-area-inset-bottom, 0px)) 1rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem',
+          alignItems: 'center',
+          zIndex: 15
+        }}>
+          
+          {/* Captured Thumbnails in Camera view */}
+          {selectedImages.length > 0 && (
+            <div style={{
+              display: 'flex',
+              gap: '0.6rem',
+              overflowX: 'auto',
+              width: '100%',
+              justifyContent: 'center',
+              padding: '0.25rem 0',
+              maxHeight: '65px'
+            }}>
+              {selectedImages.map((img) => (
+                <div key={img.id} style={{ 
+                  position: 'relative', 
+                  width: '48px', 
+                  height: '48px', 
+                  borderRadius: 'var(--radius-sm)', 
+                  overflow: 'hidden', 
+                  flexShrink: 0, 
+                  border: '2px solid var(--primary)',
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
+                }}>
+                  <img src={img.previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <button
+                    onClick={() => removeImage(img.id)}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      right: 0,
+                      background: 'rgba(239, 68, 68, 0.95)',
+                      border: 'none',
+                      borderRadius: '0 0 0 6px',
+                      width: '16px',
+                      height: '16px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <X size={10} style={{ color: '#fff' }} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Action Buttons Row */}
+          <div style={{ display: 'flex', width: '100%', justifyContent: 'space-around', alignItems: 'center', maxWidth: '300px' }}>
+            {/* Gallery Button */}
+            <button
+              className="btn btn-secondary"
+              onClick={triggerFileInput}
+              style={{ 
+                minHeight: 'auto', 
+                width: '48px',
+                height: '48px',
+                padding: 0, 
+                borderRadius: '50%', 
+                background: 'rgba(255,255,255,0.12)', 
+                backdropFilter: 'blur(4px)',
+                WebkitBackdropFilter: 'blur(4px)',
+                border: '1px solid rgba(255,255,255,0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="Aus Galerie wählen"
+            >
+              <ImageIcon size={20} style={{ color: '#fff' }} />
+            </button>
+
+            {/* Shutter Button */}
+            <button
+              onClick={capturePhoto}
+              style={{
+                width: '72px',
+                height: '72px',
+                borderRadius: '50%',
+                background: '#fff',
+                border: '6px solid var(--primary)',
+                cursor: 'pointer',
+                boxShadow: '0 0 20px rgba(9, 176, 183, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'transform 0.1s ease',
+                padding: 0
+              }}
+              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.88)'}
+              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              onTouchStart={(e) => e.currentTarget.style.transform = 'scale(0.88)'}
+              onTouchEnd={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              title="Foto aufnehmen"
+            >
+              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#fff', border: '2px solid rgba(0,0,0,0.1)' }} />
+            </button>
+
+            {/* Done/Close Button */}
+            <button
+              className="btn btn-primary"
+              onClick={() => setIsCameraActive(false)}
+              style={{
+                minHeight: 'auto',
+                padding: '0.65rem 1.25rem',
+                borderRadius: '99px',
+                fontSize: '0.85rem',
+                background: 'var(--primary)',
+                color: '#000',
+                border: 'none',
+                fontWeight: 'bold',
+                boxShadow: '0 4px 12px var(--primary-glow)'
+              }}
+            >
+              Fertig
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fade-in">
       <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center', marginBottom: '2rem', overflow: 'hidden' }}>
@@ -205,370 +456,196 @@ export default function CameraCapture({ onAnalysisStart, onAnalysisSuccess, onAn
           style={{ display: 'none' }}
         />
 
-        {/* CAMERA SCREEN MODE */}
-        {isCameraActive ? (
-          <div style={{ position: 'relative', width: '100%', marginBottom: '1.5rem', borderRadius: 'var(--radius-md)', overflow: 'hidden', background: '#000' }}>
-            
-            {/* Live Video Feed */}
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              style={{
-                width: '100%',
-                maxHeight: '400px',
-                objectFit: 'cover',
-                background: '#000',
-                transform: facingMode === 'user' ? 'scaleX(-1)' : 'none'
-              }}
-            />
-
-            {/* Flash Overlay */}
-            {flash && (
+        {/* STANDARD DASHBOARD VIEW */}
+        <div>
+          {selectedImages.length > 0 ? (
+            /* Selected Images Preview Grid */
+            <div style={{ marginBottom: '1.5rem' }}>
               <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                background: '#fff',
-                opacity: 0.8,
-                zIndex: 10,
-                pointerEvents: 'none'
-              }} />
-            )}
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
+                gap: '0.75rem',
+                marginBottom: '1.5rem',
+                background: 'rgba(0,0,0,0.15)',
+                padding: '1rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--glass-border)'
+              }}>
+                {selectedImages.map((img, index) => (
+                  <div
+                    key={img.id}
+                    style={{
+                      position: 'relative',
+                      aspectRatio: '1',
+                      borderRadius: 'var(--radius-sm)',
+                      overflow: 'hidden',
+                      border: '1px solid var(--glass-border)',
+                      boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
+                    }}
+                  >
+                    <img src={img.previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    
+                    {/* Image Number Badge */}
+                    <span style={{
+                      position: 'absolute',
+                      bottom: '0.25rem',
+                      left: '0.25rem',
+                      background: 'rgba(0,0,0,0.7)',
+                      color: '#fff',
+                      fontSize: '0.65rem',
+                      padding: '2px 5px',
+                      borderRadius: '4px',
+                      fontWeight: 'bold'
+                    }}>
+                      {index + 1}
+                    </span>
 
-            {/* Floating Camera Actions Overlay */}
-            <div style={{
-              position: 'absolute',
-              top: '0.75rem',
-              right: '0.75rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.5rem',
-              zIndex: 5
-            }}>
-              <button
-                className="btn btn-secondary"
-                onClick={toggleFacingMode}
-                style={{ minHeight: 'auto', padding: '0.5rem', borderRadius: '50%', background: 'rgba(0,0,0,0.5)', border: 'none' }}
-                title="Kamera wechseln"
-              >
-                <RotateCw size={18} style={{ color: '#fff' }} />
-              </button>
-              
-              <button
-                className="btn btn-secondary"
-                onClick={() => setIsCameraActive(false)}
-                style={{ minHeight: 'auto', padding: '0.5rem', borderRadius: '50%', background: 'rgba(0,0,0,0.5)', border: 'none' }}
-                title="Kamera schließen"
-              >
-                <X size={18} style={{ color: '#fff' }} />
-              </button>
-            </div>
+                    {/* Remove Button */}
+                    <button
+                      onClick={() => removeImage(img.id)}
+                      style={{
+                        position: 'absolute',
+                        top: '0.25rem',
+                        right: '0.25rem',
+                        background: 'rgba(239, 68, 68, 0.9)',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: '20px',
+                        height: '20px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
+                      }}
+                      title="Bild entfernen"
+                    >
+                      <Trash2 size={12} style={{ color: '#fff' }} />
+                    </button>
+                  </div>
+                ))}
 
-            {/* Camera Controls Footer (Inside Stream Frame) */}
-            <div style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              width: '100%',
-              background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%)',
-              padding: '1rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.75rem',
-              alignItems: 'center',
-              zIndex: 5
-            }}>
-              
-              {/* Captured Thumbnails in Camera view */}
-              {selectedImages.length > 0 && (
-                <div style={{
-                  display: 'flex',
-                  gap: '0.5rem',
-                  overflowX: 'auto',
-                  width: '100%',
-                  justifyContent: 'center',
-                  padding: '0.25rem 0',
-                  maxHeight: '60px'
-                }}>
-                  {selectedImages.map((img) => (
-                    <div key={img.id} style={{ position: 'relative', width: '45px', height: '45px', borderRadius: 'var(--radius-sm)', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--primary)' }}>
-                      <img src={img.previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      <button
-                        onClick={() => removeImage(img.id)}
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          right: 0,
-                          background: 'rgba(239, 68, 68, 0.85)',
-                          border: 'none',
-                          borderRadius: '0 0 0 4px',
-                          padding: '1px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        <X size={10} style={{ color: '#fff' }} />
-                      </button>
-                    </div>
-                  ))}
+                {/* Add more placeholder */}
+                <div
+                  onClick={triggerFileInput}
+                  style={{
+                    aspectRatio: '1',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '2px dashed var(--glass-border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    background: 'rgba(255,255,255,0.01)',
+                    color: 'var(--text-secondary)',
+                    gap: '0.25rem',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--glass-border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                >
+                  <Upload size={16} />
+                  <span style={{ fontSize: '0.7rem' }}>Mehr laden</span>
                 </div>
-              )}
+              </div>
 
-              {/* Action Buttons Row */}
-              <div style={{ display: 'flex', width: '100%', justifyContent: 'space-around', alignItems: 'center', maxWidth: '280px' }}>
-                {/* Gallery Button */}
+              {/* Grid Buttons */}
+              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setIsCameraActive(true)}
+                  style={{ flex: 1, minHeight: 'auto', padding: '0.75rem' }}
+                >
+                  <Camera size={16} />
+                  Foto aufnehmen
+                </button>
                 <button
                   className="btn btn-secondary"
                   onClick={triggerFileInput}
-                  style={{ minHeight: 'auto', padding: '0.75rem', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }}
-                  title="Aus Galerie wählen"
+                  style={{ flex: 1, minHeight: 'auto', padding: '0.75rem' }}
                 >
-                  <ImageIcon size={20} style={{ color: '#fff' }} />
-                </button>
-
-                {/* Shutter Button */}
-                <button
-                  onClick={capturePhoto}
-                  style={{
-                    width: '60px',
-                    height: '60px',
-                    borderRadius: '50%',
-                    background: '#fff',
-                    border: '5px solid var(--primary)',
-                    cursor: 'pointer',
-                    boxShadow: '0 0 15px rgba(9, 176, 183, 0.4)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'transform 0.1s ease'
-                  }}
-                  onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
-                  onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                  onTouchStart={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
-                  onTouchEnd={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                  title="Foto aufnehmen"
-                >
-                  <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#fff' }} />
-                </button>
-
-                {/* Done/Close Button */}
-                <button
-                  className="btn btn-primary"
-                  onClick={() => setIsCameraActive(false)}
-                  style={{
-                    minHeight: 'auto',
-                    padding: '0.6rem 1rem',
-                    borderRadius: '99px',
-                    fontSize: '0.8rem',
-                    background: 'var(--primary)',
-                    color: '#000',
-                    border: 'none',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  Fertig
+                  <Upload size={16} />
+                  Galerie wählen
                 </button>
               </div>
             </div>
-          </div>
-        ) : (
-          /* STANDARD DASHBOARD VIEW */
-          <div>
-            {selectedImages.length > 0 ? (
-              /* Selected Images Preview Grid */
-              <div style={{ marginBottom: '1.5rem' }}>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
-                  gap: '0.75rem',
-                  marginBottom: '1.5rem',
-                  background: 'rgba(0,0,0,0.15)',
-                  padding: '1rem',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--glass-border)'
-                }}>
-                  {selectedImages.map((img, index) => (
-                    <div
-                      key={img.id}
-                      style={{
-                        position: 'relative',
-                        aspectRatio: '1',
-                        borderRadius: 'var(--radius-sm)',
-                        overflow: 'hidden',
-                        border: '1px solid var(--glass-border)',
-                        boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
-                      }}
-                    >
-                      <img src={img.previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      
-                      {/* Image Number Badge */}
-                      <span style={{
-                        position: 'absolute',
-                        bottom: '0.25rem',
-                        left: '0.25rem',
-                        background: 'rgba(0,0,0,0.7)',
-                        color: '#fff',
-                        fontSize: '0.65rem',
-                        padding: '2px 5px',
-                        borderRadius: '4px',
-                        fontWeight: 'bold'
-                      }}>
-                        {index + 1}
-                      </span>
-
-                      {/* Remove Button */}
-                      <button
-                        onClick={() => removeImage(img.id)}
-                        style={{
-                          position: 'absolute',
-                          top: '0.25rem',
-                          right: '0.25rem',
-                          background: 'rgba(239, 68, 68, 0.9)',
-                          border: 'none',
-                          borderRadius: '50%',
-                          width: '20px',
-                          height: '20px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
-                        }}
-                        title="Bild entfernen"
-                      >
-                        <Trash2 size={12} style={{ color: '#fff' }} />
-                      </button>
-                    </div>
-                  ))}
-
-                  {/* Add more placeholder */}
-                  <div
-                    onClick={triggerFileInput}
-                    style={{
-                      aspectRatio: '1',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '2px dashed var(--glass-border)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'pointer',
-                      background: 'rgba(255,255,255,0.01)',
-                      color: 'var(--text-secondary)',
-                      gap: '0.25rem',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--glass-border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-                  >
-                    <Upload size={16} />
-                    <span style={{ fontSize: '0.7rem' }}>Mehr laden</span>
-                  </div>
+          ) : (
+            /* Drag & Drop Area when Empty */
+            <div
+              onClick={triggerFileInput}
+              style={{
+                border: '2px dashed var(--glass-border)',
+                borderRadius: 'var(--radius-md)',
+                padding: '3rem 2rem',
+                cursor: 'pointer',
+                background: 'rgba(0, 0, 0, 0.15)',
+                transition: 'all 0.2s ease',
+                marginBottom: '1.5rem',
+              }}
+              onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--primary)'; }}
+              onDragLeave={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--glass-border)'; }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.currentTarget.style.borderColor = 'var(--glass-border)';
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                  handleFiles(e.dataTransfer.files);
+                }
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '1rem', borderRadius: '50%', border: '1px solid var(--glass-border)' }}>
+                  <Upload size={32} style={{ color: 'var(--primary)' }} />
                 </div>
-
-                {/* Grid Buttons */}
-                <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => setIsCameraActive(true)}
-                    style={{ flex: 1, minHeight: 'auto', padding: '0.75rem' }}
-                  >
-                    <Camera size={16} />
-                    Foto aufnehmen
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={triggerFileInput}
-                    style={{ flex: 1, minHeight: 'auto', padding: '0.75rem' }}
-                  >
-                    <Upload size={16} />
-                    Galerie wählen
-                  </button>
+                <div>
+                  <p style={{ fontWeight: '600', marginBottom: '0.25rem' }}>Fotos hierhin ziehen</p>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>oder klicken zum Auswählen</p>
                 </div>
               </div>
-            ) : (
-              /* Drag & Drop Area when Empty */
-              <div
-                onClick={triggerFileInput}
-                style={{
-                  border: '2px dashed var(--glass-border)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '3rem 2rem',
-                  cursor: 'pointer',
-                  background: 'rgba(0, 0, 0, 0.15)',
-                  transition: 'all 0.2s ease',
-                  marginBottom: '1.5rem',
-                }}
-                onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--primary)'; }}
-                onDragLeave={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--glass-border)'; }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.currentTarget.style.borderColor = 'var(--glass-border)';
-                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                    handleFiles(e.dataTransfer.files);
-                  }
-                }}
+            </div>
+          )}
+
+          {/* Bottom Actions */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {selectedImages.length > 0 ? (
+              <button
+                className="btn btn-primary"
+                onClick={handleUploadAndAnalyze}
+                disabled={uploading}
+                style={{ width: '100%', padding: '1rem' }}
               >
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                  <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '1rem', borderRadius: '50%', border: '1px solid var(--glass-border)' }}>
-                    <Upload size={32} style={{ color: 'var(--primary)' }} />
-                  </div>
-                  <div>
-                    <p style={{ fontWeight: '600', marginBottom: '0.25rem' }}>Fotos hierhin ziehen</p>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>oder klicken zum Auswählen</p>
-                  </div>
-                </div>
+                <Sparkles size={18} />
+                {uploading ? 'Analysiere Bilder...' : `Mit KI analysieren (${selectedImages.length} Foto${selectedImages.length > 1 ? 's' : ''})`}
+              </button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setIsCameraActive(true)}
+                  style={{ width: '100%', padding: '1rem' }}
+                >
+                  <Camera size={18} />
+                  Kamera öffnen
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={triggerFileInput}
+                  style={{ width: '100%', padding: '1rem' }}
+                >
+                  <Upload size={18} />
+                  Aus Galerie wählen
+                </button>
               </div>
             )}
 
-            {/* Bottom Actions */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {selectedImages.length > 0 ? (
-                <button
-                  className="btn btn-primary"
-                  onClick={handleUploadAndAnalyze}
-                  disabled={uploading}
-                  style={{ width: '100%', padding: '1rem' }}
-                >
-                  <Sparkles size={18} />
-                  {uploading ? 'Analysiere Bilder...' : `Mit KI analysieren (${selectedImages.length} Foto${selectedImages.length > 1 ? 's' : ''})`}
-                </button>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => setIsCameraActive(true)}
-                    style={{ width: '100%', padding: '1rem' }}
-                  >
-                    <Camera size={18} />
-                    Kamera öffnen
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={triggerFileInput}
-                    style={{ width: '100%', padding: '1rem' }}
-                  >
-                    <Upload size={18} />
-                    Aus Galerie wählen
-                  </button>
-                </div>
-              )}
-
-              {error && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--danger)', background: 'rgba(239, 68, 68, 0.1)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', textAlign: 'left', marginTop: '0.5rem' }}>
-                  <AlertCircle size={16} style={{ flexShrink: 0 }} />
-                  <span>{error}</span>
-                </div>
-              )}
-            </div>
+            {error && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--danger)', background: 'rgba(239, 68, 68, 0.1)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', textAlign: 'left', marginTop: '0.5rem' }}>
+                <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                <span>{error}</span>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
