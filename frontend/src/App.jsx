@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, FolderHeart, Sparkles, LogOut, User } from 'lucide-react';
+import { Camera, FolderHeart, Sparkles, LogOut, User, Settings as SettingsIcon } from 'lucide-react';
 import CameraCapture from './components/CameraCapture';
 import DraftList from './components/DraftList';
 import DraftDetail from './components/DraftDetail';
 import AnalysisLoader from './components/AnalysisLoader';
 import Login from './components/Login';
+import Settings from './components/Settings';
 import { getDrafts, deleteDraft, isAuthenticated, setAuthToken, getMe } from './utils/api';
 
 export default function App() {
@@ -113,77 +114,14 @@ export default function App() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', paddingBottom: '70px' }}>
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      minHeight: '100vh', 
+      paddingBottom: '100px',
+      paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)'
+    }}>
       
-      {/* Premium Header */}
-      <header className="glass-panel" style={{
-        margin: '1rem',
-        padding: '1rem 1.5rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderBottom: '1px solid var(--glass-border)',
-        borderRadius: 'var(--radius-md)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <img 
-            src="/favicon.svg" 
-            alt="Vintamie Logo" 
-            style={{ 
-              width: '36px', 
-              height: '36px', 
-              borderRadius: '8px',
-              border: '1px solid var(--glass-border)'
-            }} 
-          />
-          <div>
-            <h1 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-title)', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              Vintamie
-            </h1>
-            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', display: 'block', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              Vision Listing Mate
-            </span>
-          </div>
-        </div>
-
-        {/* User profile & Logout */}
-        {user && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <span style={{ 
-              fontSize: '0.75rem', 
-              background: 'rgba(255,255,255,0.03)', 
-              padding: '0.4rem 0.8rem', 
-              borderRadius: '99px', 
-              border: '1px solid var(--glass-border)', 
-              color: 'var(--text-secondary)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem'
-            }}>
-              <User size={12} />
-              {user.email}
-            </span>
-            <button 
-              onClick={handleLogout}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.25rem',
-                fontSize: '0.75rem',
-                fontWeight: '600'
-              }}
-              title="Abmelden"
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
-        )}
-      </header>
-
       {/* Main Content Area */}
       <main className="container" style={{ flexGrow: 1 }}>
         {view === 'capture' && (
@@ -223,6 +161,13 @@ export default function App() {
             onUpdateSuccess={handleUpdateSuccess}
           />
         )}
+
+        {view === 'settings' && (
+          <Settings
+            user={user}
+            onLogout={handleLogout}
+          />
+        )}
       </main>
 
       {/* Responsive Sticky Footer Navigation (App-like feel) */}
@@ -233,36 +178,18 @@ export default function App() {
         transform: 'translateX(-50%)',
         width: 'calc(100% - 2rem)',
         maxWidth: '500px',
-        height: '60px',
+        height: '70px',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-around',
+        justifyContent: 'space-between',
         borderRadius: '99px',
-        padding: '0 1rem',
+        padding: '0 1.5rem',
         border: '1px solid var(--glass-border)',
         zIndex: 100,
-        boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+        boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+        background: 'rgba(11, 15, 23, 0.85)'
       }}>
-        <button
-          onClick={() => setView('capture')}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: view === 'capture' || view === 'analyzing' ? 'var(--primary)' : 'var(--text-secondary)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.2rem',
-            cursor: 'pointer',
-            fontSize: '0.75rem',
-            fontWeight: '600',
-            transition: 'color 0.2s ease'
-          }}
-        >
-          <Camera size={18} />
-          <span>Aufnahme</span>
-        </button>
-
+        {/* Left: Entwürfe */}
         <button
           onClick={() => {
             fetchDrafts();
@@ -279,11 +206,78 @@ export default function App() {
             cursor: 'pointer',
             fontSize: '0.75rem',
             fontWeight: '600',
-            transition: 'color 0.2s ease'
+            transition: 'all 0.2s ease',
+            flex: '1',
+            textAlign: 'center'
           }}
         >
-          <FolderHeart size={18} />
+          <FolderHeart size={20} />
           <span>Entwürfe</span>
+        </button>
+
+        {/* Center: Kreisrundes Kamera-Symbol (Floating Action Button) */}
+        <div style={{
+          position: 'relative',
+          top: '-15px',
+          width: '70px',
+          height: '70px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 101
+        }}>
+          <button
+            onClick={() => setView('capture')}
+            style={{
+              width: '60px',
+              height: '60px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, var(--primary) 0%, #068085 100%)',
+              border: '4px solid #080b11',
+              color: '#000',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 20px rgba(9, 176, 183, 0.4)',
+              cursor: 'pointer',
+              transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease',
+              transform: view === 'capture' || view === 'analyzing' ? 'scale(1.1)' : 'scale(1)'
+            }}
+            title="Neue Aufnahme"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.15)';
+              e.currentTarget.style.boxShadow = '0 10px 25px rgba(9, 176, 183, 0.6)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = view === 'capture' || view === 'analyzing' ? 'scale(1.1)' : 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 8px 20px rgba(9, 176, 183, 0.4)';
+            }}
+          >
+            <Camera size={24} />
+          </button>
+        </div>
+
+        {/* Right: Einstellungen */}
+        <button
+          onClick={() => setView('settings')}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: view === 'settings' ? 'var(--primary)' : 'var(--text-secondary)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.2rem',
+            cursor: 'pointer',
+            fontSize: '0.75rem',
+            fontWeight: '600',
+            transition: 'all 0.2s ease',
+            flex: '1',
+            textAlign: 'center'
+          }}
+        >
+          <SettingsIcon size={20} />
+          <span>Einstellungen</span>
         </button>
       </nav>
     </div>

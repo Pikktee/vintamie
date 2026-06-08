@@ -65,7 +65,7 @@ export default function AnalysisLoader() {
       </h3>
       
       {/* Cycling step text (dynamic height, no overflow clipping) */}
-      <div style={{ minHeight: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '0 10px' }}>
+      <div style={{ minHeight: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '0 10px', overflow: 'visible' }}>
         <p
           key={activeStep}
           className="fade-in"
@@ -75,7 +75,9 @@ export default function AnalysisLoader() {
             fontWeight: '500',
             lineHeight: '1.4',
             margin: 0,
-            animationDuration: '0.4s'
+            animationDuration: '0.4s',
+            overflow: 'visible',
+            textAlign: 'center'
           }}
         >
           {steps[activeStep]}
