@@ -596,31 +596,6 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
     );
   };
 
-  const renderSaveStatus = () => {
-    return (
-      <div className="detail-save-status">
-        {saveStatus === 'saved' && (
-          <span className="status-saved">
-            <Check size={12} />
-            <span>Gespeichert</span>
-          </span>
-        )}
-        {saveStatus === 'saving' && (
-          <span className="status-saving">
-            <RefreshCw size={12} className="spin-animation" />
-            <span>Sichert...</span>
-          </span>
-        )}
-        {saveStatus === 'error' && (
-          <span className="status-error">
-            <AlertCircle size={12} />
-            <span>Fehler</span>
-          </span>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div className="fade-in">
       {/* Sticky Tinder-style Header */}
@@ -629,7 +604,6 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
           <div className="detail-header-title-row">
             <div className="detail-header-title-container">
               <h2 className="detail-header-title">Angebot bearbeiten</h2>
-              {renderSaveStatus()}
             </div>
             <button className="detail-done-btn" onClick={onBack}>
               Fertig
