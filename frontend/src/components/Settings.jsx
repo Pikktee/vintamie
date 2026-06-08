@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, LogOut, Trash2, AlertTriangle, Save, HelpCircle, Check } from 'lucide-react';
 import { deleteUserAccount, updateMe } from '../utils/api';
+import { version } from '../../package.json';
 
 export default function Settings({ user, onLogout, onUpdateUser }) {
   const [showConfirm, setShowConfirm] = useState(false);
@@ -383,6 +384,10 @@ export default function Settings({ user, onLogout, onUpdateUser }) {
               Account löschen
             </button>
           )}
+        </div>
+
+        <div style={{ marginTop: '2.5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.75rem', letterSpacing: '0.05em', fontFamily: 'var(--font-body)' }}>
+          Vintamie App v{version}
         </div>
 
       </div>
