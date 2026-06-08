@@ -1168,18 +1168,29 @@ select.form-control {
 }
 
 /* Onboarding Premium UI */
+.onboarding-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 600px;
+  margin: 0.5rem auto;
+  padding: 0 1rem;
+}
+
 .onboarding-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 3rem 2rem 2rem 2rem;
+  padding: 2rem 1.5rem;
   border-radius: var(--radius-lg);
   position: relative;
   overflow: hidden;
-  max-width: 700px;
-  margin: 1.5rem auto;
+  width: 100%;
+  margin-bottom: 0.5rem;
 }
 
 .onboarding-container::before {
@@ -1226,7 +1237,7 @@ select.form-control {
   color: var(--text-secondary);
   font-size: 0.95rem;
   max-width: 460px;
-  margin-bottom: 2.5rem;
+  margin-bottom: 0.5rem;
   line-height: 1.6;
   z-index: 1;
 }
@@ -1351,18 +1362,18 @@ select.form-control {
 }
 
 .onboarding-arrow-container {
-  height: 90px;
+  height: 65px;
   position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-top: -0.5rem;
+  margin-top: 0.25rem;
   width: 100%;
 }
 
 .onboarding-arrow-svg {
-  width: 120px;
-  height: 90px;
+  width: 45px;
+  height: 65px;
   animation: arrowBounce 2.5s ease-in-out infinite;
   filter: drop-shadow(0 0 8px rgba(9, 176, 183, 0.6));
 }

@@ -16,47 +16,17 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
 
   if (drafts.length === 0) {
     return (
-      <div className="fade-in glass-panel onboarding-container">
-        <div className="onboarding-welcome-badge">
-          <Sparkles size={14} />
-          <span>Willkommen bei Vintamie</span>
-        </div>
-        
-        <h2 className="onboarding-title">Verwandle Kleidung in bares Geld</h2>
-        <p className="onboarding-subtitle">
-          Vintamie automatisiert das Erstellen deiner Anzeigen mit künstlicher Intelligenz. In nur drei einfachen Schritten zum fertigen Inserat:
-        </p>
-
-        <div className="onboarding-grid">
-          <div className="onboarding-card">
-            <div className="onboarding-icon-wrapper">
-              <Camera size={24} />
-            </div>
-            <h3 className="onboarding-card-title">1. Foto knipsen</h3>
-            <p className="onboarding-card-desc">
-              Fotografiere deinen Artikel direkt mit der App oder lade ein Bild aus deiner Galerie.
-            </p>
+      <div className="fade-in onboarding-wrapper">
+        <div className="glass-panel onboarding-container">
+          <div className="onboarding-welcome-badge">
+            <Sparkles size={14} />
+            <span>Willkommen bei Vintamie</span>
           </div>
-
-          <div className="onboarding-card">
-            <div className="onboarding-icon-wrapper">
-              <Sparkles size={24} />
-            </div>
-            <h3 className="onboarding-card-title">2. Vision AI Analyse</h3>
-            <p className="onboarding-card-desc">
-              Unsere KI erkennt Marke, Zustand, Farbe und schlägt den besten Verkaufspreis vor.
-            </p>
-          </div>
-
-          <div className="onboarding-card">
-            <div className="onboarding-icon-wrapper">
-              <FolderHeart size={24} />
-            </div>
-            <h3 className="onboarding-card-title">3. Blitzschnell online</h3>
-            <p className="onboarding-card-desc">
-              Exportiere deinen fertigen Entwurf direkt zu Vinted oder Kleinanzeigen.
-            </p>
-          </div>
+          
+          <h2 className="onboarding-title">Verwandle Kleidung in bares Geld</h2>
+          <p className="onboarding-subtitle">
+            Vintamie automatisiert das Erstellen deiner Anzeigen mit künstlicher Intelligenz. Mach einfach ein Foto, um loszulegen!
+          </p>
         </div>
 
         <div className="onboarding-footer">
@@ -65,18 +35,20 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
           </p>
           
           <div className="onboarding-arrow-container">
-            <svg className="onboarding-arrow-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg className="onboarding-arrow-svg" viewBox="0 0 40 60" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
-                d="M 50,5 C 80,10 80,55 50,85"
+                d="M20,5 Q35,25 20,48"
+                stroke="var(--primary)"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                className="onboarding-arrow-path"
+              />
+              <path
+                d="M12,40 L20,48 L27,39"
                 stroke="var(--primary)"
                 strokeWidth="3.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="onboarding-arrow-path"
-              />
-              <polygon
-                points="50,85 43,74 57,74"
-                fill="var(--primary)"
               />
             </svg>
           </div>
