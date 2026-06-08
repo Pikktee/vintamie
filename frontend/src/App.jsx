@@ -348,12 +348,7 @@ export default function App() {
               <span>Fotos hinzufügen</span>
             </div>
           )}
-          {view === 'detail' && (
-            <div className="status-badge">
-              <Cloud size={12} style={{ color: 'var(--primary)' }} />
-              <span>Angebot-Modus</span>
-            </div>
-          )}
+
           
           <button 
             className="help-icon-btn" 

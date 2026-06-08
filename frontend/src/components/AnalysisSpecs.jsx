@@ -197,10 +197,7 @@ export default function AnalysisSpecs({ images = [], onBack, onStartAnalysis }) 
               e.target.style.boxShadow = 'none';
             }}
           />
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.725rem', padding: '0 0.25rem', lineHeight: '1.4' }}>
-            <Info size={12} style={{ flexShrink: 0, marginTop: '0.1rem', color: 'var(--primary)' }} />
-            <span>Diese Infos fließen direkt in die automatische Titel- und Beschreibungserstellung der KI ein.</span>
-          </div>
+
         </div>
 
         {/* Action Button */}

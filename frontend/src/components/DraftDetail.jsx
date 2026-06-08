@@ -250,10 +250,13 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
   const renderPublishingAssist = () => {
     return (
       <div className="detail-section-unboxed">
-        <h3 className="detail-section-title">
-          <Share2 size={18} style={{ color: 'var(--primary)' }} />
-          <span>Veröffentlichen</span>
-        </h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '1.25rem' }}>
+          <h3 className="detail-section-title" style={{ borderBottom: 'none', margin: 0, paddingBottom: 0 }}>
+            <Share2 size={18} style={{ color: 'var(--primary)' }} />
+            <span>Veröffentlichen</span>
+          </h3>
+          {isMobile && renderSaveStatus()}
+        </div>
         
         {isAndroidApp ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -332,20 +335,18 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
             </div>
 
             {/* External Platform Links */}
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
+            <div className="platform-links-container">
               <button 
-                className="btn btn-vinted" 
+                className="btn btn-vinted platform-link-btn" 
                 onClick={() => openPlatformPage('vinted')}
-                style={{ flex: 1, padding: '0.6rem 1rem', fontSize: '0.85rem', minHeight: '44px' }}
               >
                 Vinted öffnen
                 <ExternalLink size={12} style={{ marginLeft: '0.25rem' }} />
               </button>
               
               <button 
-                className="btn btn-kleinanzeigen" 
+                className="btn btn-kleinanzeigen platform-link-btn" 
                 onClick={() => openPlatformPage('kleinanzeigen')}
-                style={{ flex: 1, padding: '0.6rem 1rem', fontSize: '0.85rem', minHeight: '44px' }}
               >
                 Kleinanzeigen
                 <ExternalLink size={12} style={{ marginLeft: '0.25rem' }} />
@@ -467,10 +468,13 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
   const renderFormFields = () => {
     return (
       <div className="detail-section-unboxed" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        <h3 className="detail-section-title">
-          <FileText size={18} style={{ color: 'var(--primary)' }} />
-          <span>Details</span>
-        </h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '0.25rem' }}>
+          <h3 className="detail-section-title" style={{ borderBottom: 'none', margin: 0, paddingBottom: 0 }}>
+            <FileText size={18} style={{ color: 'var(--primary)' }} />
+            <span>Details</span>
+          </h3>
+          {isMobile && renderSaveStatus()}
+        </div>
         
         {/* Title */}
         <div className="form-group" style={{ marginBottom: 0 }}>
@@ -597,12 +601,7 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
   const renderSaveStatus = () => {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', fontWeight: '600' }}>
-        {saveStatus === 'saved' && (
-          <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <Check size={14} />
-            <span style={{ fontSize: '0.8rem' }}>Gesichert</span>
-          </span>
-        )}
+        {saveStatus === 'saved' && null}
         {saveStatus === 'saving' && (
           <span style={{ color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
             <RefreshCw size={12} style={{ animation: 'spin 1.5s linear infinite' }} />
@@ -624,7 +623,7 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
       {/* Sticky Tab Header on Mobile */}
       {isMobile && (
         <div className="detail-tabs-header">
-          <div className="segmented-control" style={{ flexGrow: 1 }}>
+          <div className="segmented-control" style={{ width: '100%' }}>
             <button 
               className={`segmented-control-btn ${activeTab === 'edit' ? 'active' : ''}`}
               onClick={() => setActiveTab('edit')}
@@ -639,9 +638,6 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
               <Share2 size={15} />
               <span>Veröffentlichen</span>
             </button>
-          </div>
-          <div style={{ flexShrink: 0, paddingLeft: '0.25rem' }}>
-            {renderSaveStatus()}
           </div>
         </div>
       )}
