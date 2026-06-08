@@ -73,6 +73,36 @@ export const loginUser = async (email, password) => {
   return data;
 };
 
+export const getAuthConfig = async () => {
+  const response = await fetch(`${API_BASE_URL}/api/auth/config`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new Error('Fehler beim Laden der Server-Konfiguration.');
+  }
+
+  return response.json();
+};
+
+export const loginWithGoogle = async (credential) => {
+  const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || 'Google-Login-Validierung fehlgeschlagen.');
+  }
+
+  const data = await response.json();
+  setAuthToken(data.access_token);
+  return data;
+};
+
 export const getMe = async () => {
   const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
     method: 'GET',

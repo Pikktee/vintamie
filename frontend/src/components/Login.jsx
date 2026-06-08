@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, Lock, Sparkles, AlertCircle, CheckCircle } from 'lucide-react';
-import { loginUser, registerUser } from '../utils/api';
+import { loginUser, registerUser, getAuthConfig, loginWithGoogle } from '../utils/api';
 
 export default function Login({ onLoginSuccess }) {
   const [isRegister, setIsRegister] = useState(false);
@@ -9,6 +9,70 @@ export default function Login({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [googleClientId, setGoogleClientId] = useState('');
+
+  // Load backend configuration
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const config = await getAuthConfig();
+        if (config.google_client_id) {
+          setGoogleClientId(config.google_client_id);
+        }
+      } catch (err) {
+        console.error("Fehler beim Laden der Auth-Konfiguration:", err);
+      }
+    };
+    fetchConfig();
+  }, []);
+
+  // Handle Google Sign-In response
+  const handleGoogleCredentialResponse = async (response) => {
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const data = await loginWithGoogle(response.credential);
+      onLoginSuccess(data.access_token);
+    } catch (err) {
+      console.error("Google Login Fehler:", err);
+      setError(err.message || 'Google-Login fehlgeschlagen. Bitte erneut versuchen.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Render Google Button when client ID and script are ready
+  useEffect(() => {
+    if (!googleClientId) return;
+
+    const checkGoogle = setInterval(() => {
+      if (typeof google !== 'undefined') {
+        clearInterval(checkGoogle);
+        try {
+          google.accounts.id.initialize({
+            client_id: googleClientId,
+            callback: handleGoogleCredentialResponse,
+          });
+          google.accounts.id.renderButton(
+            document.getElementById("google-signin-button"),
+            { 
+              theme: "filled_black", 
+              size: "large", 
+              width: 336,
+              text: isRegister ? "signup_with" : "signin_with",
+              shape: "rectangular",
+              logo_alignment: "center"
+            }
+          );
+        } catch (initErr) {
+          console.error("Fehler bei der Google Sign-In Initialisierung:", initErr);
+        }
+      }
+    }, 100);
+
+    return () => clearInterval(checkGoogle);
+  }, [googleClientId, isRegister]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -123,6 +187,29 @@ export default function Login({ onLoginSuccess }) {
             {loading ? 'Bitte warten...' : isRegister ? 'Registrieren' : 'Einloggen'}
           </button>
         </form>
+
+        {/* Google OAuth Login Button */}
+        {googleClientId && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', margin: '1.5rem 0', gap: '0.75rem' }}>
+              <div style={{ flex: 1, height: '1px', background: 'rgba(255, 255, 255, 0.08)' }}></div>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>oder</span>
+              <div style={{ flex: 1, height: '1px', background: 'rgba(255, 255, 255, 0.08)' }}></div>
+            </div>
+            
+            <div 
+              id="google-signin-button" 
+              style={{ 
+                width: '100%', 
+                display: 'flex', 
+                justifyContent: 'center',
+                minHeight: '40px',
+                borderRadius: 'var(--radius-sm)',
+                overflow: 'hidden'
+              }}
+            ></div>
+          </>
+        )}
 
         {/* Form Toggle Switch */}
         <div style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.875rem' }}>

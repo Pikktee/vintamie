@@ -13,11 +13,29 @@ import schemas
 from database import engine, get_db
 from services.gemini_service import analyze_item_image
 from auth_utils import verify_password, get_password_hash, create_access_token, decode_access_token
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from sqlalchemy import text
 
 # Create tables
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Vintamie API", version="2.0.2")
+def run_migrations():
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        db.execute(text("ALTER TABLE users ADD COLUMN google_id VARCHAR(255)"))
+        db.commit()
+        print("Successfully ran migrations: added google_id column.", flush=True)
+    except Exception as e:
+        db.rollback()
+        print(f"Migration note: google_id column might already exist. ({e})", flush=True)
+    finally:
+        db.close()
+
+run_migrations()
+
+app = FastAPI(title="Vintamie API", version="2.0.3")
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -100,6 +118,64 @@ def login(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
 @app.get("/api/auth/me", response_model=schemas.UserResponse)
 def get_me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+@app.get("/api/auth/config")
+def get_auth_config():
+    return {
+        "google_client_id": os.getenv("GOOGLE_CLIENT_ID", "")
+    }
+
+@app.post("/api/auth/google", response_model=schemas.Token)
+def login_google(login_in: schemas.GoogleLogin, db: Session = Depends(get_db)):
+    credential = login_in.credential
+    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    if not client_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Google Client ID ist auf dem Server nicht konfiguriert."
+        )
+    
+    try:
+        idinfo = id_token.verify_oauth2_token(credential, google_requests.Request(), client_id)
+        
+        google_id = idinfo.get("sub")
+        email = idinfo.get("email")
+        
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Google-Konto stellt keine E-Mail-Adresse zur Verfügung."
+            )
+            
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Ungültiges Google-Token: {str(e)}"
+        )
+        
+    db_user = db.query(models.User).filter(
+        (models.User.google_id == google_id) | (models.User.email == email)
+    ).first()
+    
+    if not db_user:
+        random_password = str(uuid.uuid4())
+        hashed_pwd = get_password_hash(random_password)
+        db_user = models.User(
+            email=email,
+            hashed_password=hashed_pwd,
+            google_id=google_id
+        )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+    else:
+        if not db_user.google_id:
+            db_user.google_id = google_id
+            db.commit()
+            db.refresh(db_user)
+            
+    access_token = create_access_token(data={"sub": db_user.email})
+    return {"access_token": access_token, "token_type": "bearer"}
 
 # --- DRAFT ENDPOINTS (SECURED) ---
 

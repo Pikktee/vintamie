@@ -29,6 +29,7 @@ export default function App() {
     try {
       const u = await getMe();
       setUser(u);
+      localStorage.setItem('vintamie_user_email', u.email);
     } catch (err) {
       console.error(err);
       handleLogout();
@@ -61,6 +62,7 @@ export default function App() {
     setUser(null);
     setDrafts([]);
     setSelectedDraft(null);
+    localStorage.removeItem('vintamie_user_email');
     setView('capture');
   };
 
