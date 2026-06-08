@@ -255,7 +255,7 @@ export default function LandingPage() {
               3. Schnell online stellen
             </h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.45' }}>
-              Übertrage deine Entwürfe mit unserer Erweiterung direkt in die Formulare von Vinted und Kleinanzeigen.
+              Übertrage deine Angebote mit unserer Erweiterung direkt in die Formulare von Vinted und Kleinanzeigen.
             </p>
           </div>
         </div>
@@ -418,10 +418,10 @@ export default function LandingPage() {
                     2. Datenerfassung auf dieser Website
                   </h3>
                   <p style={{ marginBottom: '1.25rem' }}>
-                    <strong>Registrierungsdaten:</strong> Für die Nutzung unserer Entwurfs-Automatisierung erheben wir deine E-Mail-Adresse und ein verschlüsseltes Passwort. Diese Daten dienen ausschließlich zur Authentifizierung und Zuordnung deiner Entwürfe.
+                    <strong>Registrierungsdaten:</strong> Für die Nutzung unserer Angebots-Automatisierung erheben wir deine E-Mail-Adresse und ein verschlüsseltes Passwort. Diese Daten dienen ausschließlich zur Authentifizierung und Zuordnung deiner Angebote.
                   </p>
                   <p style={{ marginBottom: '1.5rem' }}>
-                    <strong>Bilder und Entwürfe:</strong> Wenn du Fotos deiner Artikel hochlädst, werden diese temporär zur Analyse an den Google Gemini API Dienst übertragen. Es werden keine Metadaten oder Standortdaten deiner Bilder dauerhaft gespeichert oder für Werbezwecke verwendet.
+                    <strong>Bilder und Angebote:</strong> Wenn du Fotos deiner Artikel hochlädst, werden diese temporär zur Analyse an den Google Gemini API Dienst übertragen. Es werden keine Metadaten oder Standortdaten deiner Bilder dauerhaft gespeichert oder für Werbezwecke verwendet.
                   </p>
 
                   <h3 style={{ fontSize: '1rem', color: '#fff', marginBottom: '0.5rem', fontFamily: 'var(--font-title)' }}>
@@ -435,7 +435,7 @@ export default function LandingPage() {
                     4. Deine Rechte
                   </h3>
                   <p>
-                    Du hast jederzeit das Recht auf unentgeltliche Auskunft über Herkunft, Empfänger und Zweck deiner gespeicherten personenbezogenen Daten. Du hast außerdem ein Recht auf Berichtigung, Sperrung oder Löschung dieser Daten. Du kannst dein Konto und alle damit verbundenen Entwürfe und Bilder jederzeit direkt in deinen Profileinstellungen löschen.
+                    Du hast jederzeit das Recht auf unentgeltliche Auskunft über Herkunft, Empfänger und Zweck deiner gespeicherten personenbezogenen Daten. Du hast außerdem ein Recht auf Berichtigung, Sperrung oder Löschung dieser Daten. Du kannst dein Konto und alle damit verbundenen Angebote und Bilder jederzeit direkt in deinen Profileinstellungen löschen.
                   </p>
                 </div>
               )}

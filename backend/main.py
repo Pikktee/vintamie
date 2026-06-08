@@ -63,7 +63,7 @@ def run_migrations():
 
 run_migrations()
 
-app = FastAPI(title="Vintamie API", version="2.2.65")
+app = FastAPI(title="Vintamie API", version="2.2.66")
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -363,7 +363,7 @@ def get_draft(
         models.Draft.user_id == current_user.id
     ).first()
     if not db_draft:
-        raise HTTPException(status_code=404, detail="Entwurf wurde nicht gefunden.")
+        raise HTTPException(status_code=404, detail="Angebot wurde nicht gefunden.")
     return db_draft
 
 @app.put("/api/drafts/{draft_id}", response_model=schemas.DraftResponse)
@@ -378,7 +378,7 @@ def update_draft(
         models.Draft.user_id == current_user.id
     ).first()
     if not db_draft:
-        raise HTTPException(status_code=404, detail="Entwurf wurde nicht gefunden.")
+        raise HTTPException(status_code=404, detail="Angebot wurde nicht gefunden.")
     
     update_data = updated_draft.dict(exclude_unset=True)
     for key, value in update_data.items():
@@ -399,7 +399,7 @@ def delete_draft(
         models.Draft.user_id == current_user.id
     ).first()
     if not db_draft:
-        raise HTTPException(status_code=404, detail="Entwurf wurde nicht gefunden.")
+        raise HTTPException(status_code=404, detail="Angebot wurde nicht gefunden.")
     
     # Delete all associated images
     if db_draft.image_paths:
@@ -421,7 +421,7 @@ def delete_draft(
 
     db.delete(db_draft)
     db.commit()
-    return {"detail": "Entwurf gelöscht"}
+    return {"detail": "Angebot gelöscht"}
 
 @app.post("/api/drafts/{draft_id}/images", response_model=schemas.DraftResponse)
 def add_draft_images(
@@ -435,7 +435,7 @@ def add_draft_images(
         models.Draft.user_id == current_user.id
     ).first()
     if not db_draft:
-        raise HTTPException(status_code=404, detail="Entwurf wurde nicht gefunden.")
+        raise HTTPException(status_code=404, detail="Angebot wurde nicht gefunden.")
 
     existing_paths = []
     if db_draft.image_paths:
@@ -498,7 +498,7 @@ def delete_draft_image(
         models.Draft.user_id == current_user.id
     ).first()
     if not db_draft:
-        raise HTTPException(status_code=404, detail="Entwurf wurde nicht gefunden.")
+        raise HTTPException(status_code=404, detail="Angebot wurde nicht gefunden.")
 
     existing_paths = []
     if db_draft.image_paths:
@@ -509,7 +509,7 @@ def delete_draft_image(
                 existing_paths = [db_draft.image_path]
 
     if image_path not in existing_paths:
-        raise HTTPException(status_code=400, detail="Bild gehört nicht zu diesem Entwurf.")
+        raise HTTPException(status_code=400, detail="Bild gehört nicht zu diesem Angebot.")
 
     existing_paths.remove(image_path)
     
@@ -543,7 +543,7 @@ def regenerate_draft_field_endpoint(
         models.Draft.user_id == current_user.id
     ).first()
     if not db_draft:
-        raise HTTPException(status_code=404, detail="Entwurf wurde nicht gefunden.")
+        raise HTTPException(status_code=404, detail="Angebot wurde nicht gefunden.")
 
     image_paths = []
     if db_draft.image_paths:
@@ -557,7 +557,7 @@ def regenerate_draft_field_endpoint(
         image_paths = [db_draft.image_path.lstrip("/")]
 
     if not image_paths:
-        raise HTTPException(status_code=400, detail="Keine Bilder im Entwurf vorhanden, um KI-Generierung auszuführen.")
+        raise HTTPException(status_code=400, detail="Keine Bilder im Angebot vorhanden, um KI-Generierung auszuführen.")
 
     from services.gemini_service import regenerate_draft_field
     try:

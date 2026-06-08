@@ -156,7 +156,7 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun postToPlatform(draftId: Int, platform: String, token: String) {
             runOnUiThread {
-                Toast.makeText(this@MainActivity, "Lade Entwurf #$draftId...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Lade Angebot #$draftId...", Toast.LENGTH_SHORT).show()
                 fetchDraftAndPrepare(draftId, platform, token)
             }
         }
@@ -187,7 +187,7 @@ class MainActivity : AppCompatActivity() {
                 response.use {
                     if (!response.isSuccessful) {
                         runOnUiThread {
-                            Toast.makeText(this@MainActivity, "Fehler beim Laden des Entwurfs.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this@MainActivity, "Fehler beim Laden des Angebots.", Toast.LENGTH_LONG).show()
                         }
                         return
                     }

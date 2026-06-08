@@ -168,7 +168,7 @@ export const getDrafts = async () => {
     headers: getHeaders(),
   });
   if (!response.ok) {
-    throw new Error('Fehler beim Laden der Entwürfe.');
+    throw new Error('Fehler beim Laden der Angebote.');
   }
   return response.json();
 };
@@ -179,7 +179,7 @@ export const getDraft = async (id) => {
     headers: getHeaders(),
   });
   if (!response.ok) {
-    throw new Error('Fehler beim Laden des Entwurfs.');
+    throw new Error('Fehler beim Laden des Angebots.');
   }
   return response.json();
 };
@@ -192,7 +192,7 @@ export const updateDraft = async (id, draftData) => {
   });
 
   if (!response.ok) {
-    throw new Error('Fehler beim Aktualisieren des Entwurfs.');
+    throw new Error('Fehler beim Aktualisieren des Angebots.');
   }
 
   return response.json();
@@ -205,7 +205,7 @@ export const deleteDraft = async (id) => {
   });
 
   if (!response.ok) {
-    throw new Error('Fehler beim Löschen des Entwurfs.');
+    throw new Error('Fehler beim Löschen des Angebots.');
   }
   
   return true;

@@ -56,7 +56,7 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
             </p>
             
             <p className="onboarding-cta-text landscape-cta">
-              Tippe links auf das Kamerasymbol, um deinen ersten Entwurf zu erstellen!
+              Tippe links auf das Kamerasymbol, um dein erstes Angebot zu erstellen!
             </p>
           </div>
         </div>
@@ -64,7 +64,7 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
         {/* Portrait Footer (CTA + Arrow pointing down, visible only in portrait) */}
         <div className="onboarding-footer portrait-footer">
           <p className="onboarding-cta-text portrait-cta">
-            Tippe unten auf das Kamerasymbol, um deinen ersten Entwurf zu erstellen!
+            Tippe unten auf das Kamerasymbol, um dein erstes Angebot zu erstellen!
           </p>
           
           <div className="onboarding-arrow-container">
@@ -95,7 +95,7 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
   return (
     <div className="fade-in">
       <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', fontFamily: 'var(--font-title)' }}>
-        Deine Entwürfe ({drafts.length})
+        Deine Angebote ({drafts.length})
       </h2>
       
       <div className="drafts-grid">
@@ -122,7 +122,7 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
             {/* Content Details */}
             <div className="draft-card-content">
               <h3 className="draft-card-title">
-                {draft.title || 'Unbenannter Entwurf'}
+                {draft.title || 'Unbenanntes Angebot'}
               </h3>
               
               {/* Badges */}
@@ -149,7 +149,7 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (confirm('Möchtest du diesen Entwurf wirklich löschen?')) {
+                    if (confirm('Möchtest du dieses Angebot wirklich löschen?')) {
                       onDeleteDraft(draft.id);
                     }
                   }}

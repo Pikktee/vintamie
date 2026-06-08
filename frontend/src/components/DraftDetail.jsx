@@ -157,7 +157,7 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
 
   const handleDeleteImage = async (imgUrl) => {
     if (!imgUrl) return;
-    if (!confirm('Möchtest du dieses Bild wirklich aus dem Entwurf löschen?')) return;
+    if (!confirm('Möchtest du dieses Bild wirklich aus dem Angebot löschen?')) return;
     
     try {
       const updated = await deleteDraftImage(draft.id, imgUrl);

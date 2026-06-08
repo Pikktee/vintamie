@@ -146,14 +146,14 @@ async function openOverlay() {
   // Header HTML
   let contentHtml = `
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:12px; margin-bottom:16px;">
-      <span style="font-size:18px; font-weight:bold; background:linear-gradient(135deg, #09b0b7 0%, #ec4899 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">✨ Vintamie Entwürfe</span>
+      <span style="font-size:18px; font-weight:bold; background:linear-gradient(135deg, #09b0b7 0%, #ec4899 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">✨ Vintamie Angebote</span>
       <button id="vintamie-close" style="background:transparent; border:none; color:#94a3b8; cursor:pointer; font-size:18px;">&times;</button>
     </div>
     <button id="vintamie-btn-camera" style="width:100%; padding:12px; background:linear-gradient(135deg, #09b0b7 0%, #ec4899 100%); border:none; border-radius:8px; color:#000000; font-weight:bold; font-size:13px; font-family:'Outfit', 'Inter', sans-serif; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:16px; box-shadow:0 4px 12px rgba(9, 176, 183, 0.2); transition:all 0.2s ease;">
       📸 Neues Foto aufnehmen
     </button>
     <div id="vintamie-list-container" style="flex-grow:1; overflow-y:auto; display:flex; flexDirection:column; gap:12px; padding-bottom:20px;">
-      <p style="color:#94a3b8; font-size:13px;">Lade Entwürfe...</p>
+      <p style="color:#94a3b8; font-size:13px;">Lade Angebote...</p>
     </div>
   `;
   
@@ -217,7 +217,7 @@ async function openOverlay() {
     } catch (err) {
       document.getElementById("vintamie-list-container").innerHTML = `
         <div style="color:#fca5a5; font-size:13px; background:rgba(239,68,68,0.1); padding:10px; border-radius:6px; border:1px solid rgba(239,68,68,0.2); line-height: 1.4;">
-          Fehler beim Laden der Entwürfe. Bitte stelle sicher, dass der Vintamie Server läuft und deine Sitzung aktiv ist.
+          Fehler beim Laden der Angebote. Bitte stelle sicher, dass der Vintamie Server läuft und deine Sitzung aktiv ist.
         </div>
       `;
     }
@@ -230,7 +230,7 @@ function renderDraftsList() {
   if (!container) return;
 
   if (drafts.length === 0) {
-    container.innerHTML = `<p style="color:#94a3b8; font-size:13px; text-align:center; margin-top:20px;">Keine Entwürfe vorhanden. Fotografiere erst ein Teil!</p>`;
+    container.innerHTML = `<p style="color:#94a3b8; font-size:13px; text-align:center; margin-top:20px;">Keine Angebote vorhanden. Fotografiere erst ein Teil!</p>`;
     return;
   }
 

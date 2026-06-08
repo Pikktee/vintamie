@@ -296,7 +296,7 @@ export default function Settings({ user, onLogout, onUpdateUser }) {
               Standard-Versandart
               <span className="tooltip-container">
                 <HelpCircle size={14} />
-                <span className="tooltip-text">Deine bevorzugte Versandart zur Dokumentation im Entwurf.</span>
+                <span className="tooltip-text">Deine bevorzugte Versandart zur Dokumentation im Angebot.</span>
               </span>
             </label>
             <input
@@ -371,7 +371,7 @@ export default function Settings({ user, onLogout, onUpdateUser }) {
                 <span>Account wirklich löschen?</span>
               </div>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.4' }}>
-                Diese Aktion löscht unwiderruflich deinen Account, alle gespeicherten Entwürfe auf dem Server und deine Google-Verknüpfung.
+                Diese Aktion löscht unwiderruflich deinen Account, alle gespeicherten Angebote auf dem Server und deine Google-Verknüpfung.
               </p>
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
                 <button

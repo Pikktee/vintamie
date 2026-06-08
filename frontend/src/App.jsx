@@ -195,7 +195,7 @@ export default function App() {
       }
     } catch (err) {
       console.error(err);
-      alert('Der Entwurf konnte nicht gelöscht werden.');
+      alert('Das Angebot konnte nicht gelöscht werden.');
     }
   };
 
@@ -334,7 +334,7 @@ export default function App() {
           {view === 'detail' && (
             <div className="status-badge">
               <Cloud size={12} style={{ color: 'var(--primary)' }} />
-              <span>Entwurf-Modus</span>
+              <span>Angebot-Modus</span>
             </div>
           )}
           
@@ -435,7 +435,7 @@ export default function App() {
       {/* Responsive Sticky Footer Navigation (Tinder style flat bottom bar) */}
       {!isInputFocused && view !== 'analyzing' && view !== 'issues' && (
         <nav className="app-nav">
-          {/* Left: Entwürfe */}
+          {/* Left: Angebote */}
           <button
             onClick={() => {
               fetchDrafts();
@@ -444,7 +444,7 @@ export default function App() {
             className={`nav-tab-btn ${view === 'list' || view === 'detail' ? 'active' : ''}`}
           >
             <FolderHeart size={20} />
-            <span>Entwürfe</span>
+            <span>Angebote</span>
           </button>
 
           {/* Center: Floating round Camera button (FAB) */}
