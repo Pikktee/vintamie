@@ -44,6 +44,8 @@ class MainActivity : AppCompatActivity() {
     private var userZip: String? = null
     // Guards the automatic one-shot fill so it does not re-trigger on every SPA page event
     private var hasAutoFilled = false
+    // Guards the automatic category pre-selection on the Kleinanzeigen step 1 page
+    private var hasAutoCategory = false
 
     private val okHttpClient = OkHttpClient()
     
@@ -118,6 +120,12 @@ class MainActivity : AppCompatActivity() {
                         // The forms render dynamically; give them a moment before injecting.
                         webView.postDelayed({ injectAutofillScript(autoSubmit = true) }, 1200)
                     }
+                    // On the category picker, try to auto-select the category via the
+                    // keyword suggestion field so the user reaches the form hands-free.
+                    if (isKleinanzeigenCategory && !hasAutoCategory) {
+                        hasAutoCategory = true
+                        webView.postDelayed({ injectCategorySelectScript() }, 1200)
+                    }
                 } else {
                     fabFill.visibility = View.GONE
                 }
@@ -177,6 +185,7 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 Toast.makeText(this@MainActivity, "Lade Entwurf #$draftId...", Toast.LENGTH_SHORT).show()
                 hasAutoFilled = false
+                hasAutoCategory = false
                 fetchUserProfile(token)
                 fetchDraftAndPrepare(draftId, platform, token)
             }
@@ -283,6 +292,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun navigateToPlatformListing(platform: String) {
         hasAutoFilled = false
+        hasAutoCategory = false
         val url = if (platform == "vinted") {
             "https://www.vinted.de/items/new"
         } else {
@@ -329,9 +339,90 @@ class MainActivity : AppCompatActivity() {
         activeImageUri = null
         activePlatform = null
         hasAutoFilled = false
+        hasAutoCategory = false
         fabFill.visibility = View.GONE
         fabClose.visibility = View.GONE
         webView.loadUrl(frontendUrl)
+    }
+
+    // Injects Javascript on the Kleinanzeigen category picker (step 1). Kleinanzeigen has
+    // no plain category field; instead it matches a keyword to a category via a suggestion
+    // dropdown. We type our category (or, as a fallback, the title) and click the first
+    // suggestion, which navigates to the form (step 2). If no suggestion can be clicked the
+    // field stays prefilled so the user only needs a single tap.
+    private fun injectCategorySelectScript() {
+        val draftJson = activeDraftJson ?: return
+        val escapedJson = draftJson.replace("\\", "\\\\").replace("'", "\\'")
+
+        val js = """
+            (function() {
+                const draft = JSON.parse('$escapedJson');
+                const keyword = (draft.category && draft.category.trim()) ? draft.category.trim() : (draft.title || '').trim();
+                if (!keyword) return;
+
+                function findInput() {
+                    let el = document.querySelector("#pstad-keyword")
+                        || document.querySelector("#postad-keyword")
+                        || document.querySelector("input[name='keyword']")
+                        || document.querySelector("input[type='search']");
+                    if (el) return el;
+                    const inputs = document.querySelectorAll("input[type='text'], input:not([type])");
+                    for (const i of inputs) {
+                        const p = (i.placeholder || '').toLowerCase();
+                        if (p.includes('verkauf') || p.includes('was ') || p.includes('suchst') || p.includes('bieten') || p.includes('artikel')) {
+                            return i;
+                        }
+                    }
+                    return null;
+                }
+
+                let tries = 0;
+                function start() {
+                    tries++;
+                    const input = findInput();
+                    if (!input) {
+                        if (tries < 20) setTimeout(start, 500);
+                        return;
+                    }
+                    input.focus();
+                    input.value = keyword;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+                    input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+                    setTimeout(pickSuggestion, 1500);
+                }
+
+                let pickTries = 0;
+                function pickSuggestion() {
+                    pickTries++;
+                    const selectors = [
+                        "#pstad-keyword-suggestions li",
+                        "#postad-keyword-suggestions li",
+                        "ul[role='listbox'] li[role='option']",
+                        "ul[role='listbox'] li",
+                        "[class*='uggestion'] li",
+                        "[class*='uggestion'] a",
+                        "li[role='option']",
+                        "a[href*='p-kategorie']"
+                    ];
+                    let item = null;
+                    for (const s of selectors) {
+                        const el = document.querySelector(s);
+                        if (el) { item = el; break; }
+                    }
+                    if (item) {
+                        item.click();
+                        return;
+                    }
+                    if (pickTries < 6) setTimeout(pickSuggestion, 1000);
+                    // Otherwise: leave the field prefilled for a manual tap.
+                }
+
+                start();
+            })();
+        """.trimIndent()
+
+        webView.evaluateJavascript(js, null)
     }
 
     // Injects Javascript to autofill fields, trigger the file upload chooser click and
