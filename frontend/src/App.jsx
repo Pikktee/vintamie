@@ -384,9 +384,7 @@ export default function App() {
           )}
 
           {view === 'analyzing' && (
-            <div className="glass-panel" style={{ borderRadius: 'var(--radius-md)' }}>
-              <AnalysisLoader onCancel={handleCancelAnalysis} />
-            </div>
+            <AnalysisLoader onCancel={handleCancelAnalysis} />
           )}
 
           {view === 'list' && (

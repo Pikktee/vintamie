@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 
 export default function AnalysisLoader({ onCancel }) {
   const [activeStep, setActiveStep] = useState(0);
@@ -16,20 +16,26 @@ export default function AnalysisLoader({ onCancel }) {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setActiveStep((prev) => (prev + 1) % steps.length);
-    }, 2800); // 2.8s per step for comfortable reading
+      setActiveStep((prev) => (prev < steps.length - 1 ? prev + 1 : prev));
+    }, 2400); // Slightly faster to feel snappier
 
     return () => clearInterval(interval);
-  }, []);
+  }, [steps.length]);
+
+  const progressPercentage = ((activeStep + 0.5) / steps.length) * 100;
 
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 1.5rem', textAlign: 'center' }}>
+    <div className="loader-wrapper fade-in" style={{ width: '100%' }}>
+      {/* Background Ambient Glows */}
+      <div className="loader-ambient-glow-1" />
+      <div className="loader-ambient-glow-2" />
+
       {/* Animated Vintamie Logo */}
       <svg 
         xmlns="http://www.w3.org/2000/svg" 
         viewBox="0 0 512 512" 
         fill="none" 
-        style={{ width: '160px', height: '160px', marginBottom: '2rem', filter: 'drop-shadow(0 8px 24px rgba(9, 176, 183, 0.25))' }}
+        style={{ width: '120px', height: '120px', marginBottom: '1.25rem', filter: 'drop-shadow(0 8px 24px rgba(9, 176, 183, 0.25))' }}
       >
         <defs>
           <linearGradient id="loader-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -68,28 +74,47 @@ export default function AnalysisLoader({ onCancel }) {
         </g>
       </svg>
 
-      <h3 style={{ fontFamily: 'var(--font-title)', fontSize: '1.5rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
-        Vintamie arbeitet
+      <h3 style={{ fontFamily: 'var(--font-title)', fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+        Vintamie arbeitet...
       </h3>
-      
-      {/* Cycling step text (dynamic height, no overflow clipping) */}
-      <div style={{ minHeight: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '0 10px', overflow: 'visible' }}>
-        <p
-          key={activeStep}
-          className="fade-in"
-          style={{
-            color: 'var(--text-secondary)',
-            fontSize: '1rem',
-            fontWeight: '500',
-            lineHeight: '1.4',
-            margin: 0,
-            animationDuration: '0.4s',
-            overflow: 'visible',
-            textAlign: 'center'
-          }}
-        >
-          {steps[activeStep]}
-        </p>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.25rem', marginBottom: 0 }}>
+        Dein Angebot wird in Echtzeit analysiert und erstellt.
+      </p>
+
+      {/* Stepper Container */}
+      <div className="stepper-container">
+        {steps.map((step, idx) => {
+          let statusClass = "pending";
+          let icon = null;
+
+          if (idx < activeStep) {
+            statusClass = "completed";
+            icon = <Check size={11} strokeWidth={3} />;
+          } else if (idx === activeStep) {
+            statusClass = "active";
+            icon = <Loader2 className="animate-spin" size={11} strokeWidth={2.5} />;
+          } else {
+            statusClass = "pending";
+            icon = <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'currentColor' }} />;
+          }
+
+          return (
+            <div key={idx} className={`stepper-item ${statusClass}`}>
+              <div className="stepper-icon-wrapper">
+                {icon}
+              </div>
+              <span className="stepper-text">{step}</span>
+            </div>
+          );
+        })}
+
+        {/* Stepper Progress Bar */}
+        <div className="stepper-progress-bar">
+          <div 
+            className="stepper-progress-fill" 
+            style={{ width: `${progressPercentage}%` }} 
+          />
+        </div>
       </div>
 
       {/* Abbrechen Button */}
@@ -98,26 +123,30 @@ export default function AnalysisLoader({ onCancel }) {
           onClick={onCancel}
           className="btn btn-secondary"
           style={{
-            marginTop: '1rem',
-            padding: '0.6rem 1.8rem',
+            marginTop: '0.5rem',
+            padding: '0.5rem 1.5rem',
             borderRadius: '99px',
-            fontSize: '0.9rem',
+            fontSize: '0.85rem',
             fontWeight: '600',
-            background: 'rgba(255, 255, 255, 0.08)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
             color: 'var(--text-secondary)',
             cursor: 'pointer',
             transition: 'all 0.2s ease',
+            minHeight: '38px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
-            e.currentTarget.style.color = '#ef4444';
-            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
+            e.currentTarget.style.color = '#f87171';
+            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.25)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
             e.currentTarget.style.color = 'var(--text-secondary)';
-            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
           }}
         >
           Analyse abbrechen

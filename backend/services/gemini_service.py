@@ -84,25 +84,33 @@ def analyze_item_image(image_paths: List[str], user = None) -> dict:
             "um vergleichbare Angebote zu finden. Antworte AUSSCHLIESSLICH mit der Suchanfrage."
         )
 
-        working_model_name = GEMINI_MODEL
-        id_response = None
+        models_to_try = []
+        if GEMINI_MODEL:
+            models_to_try.append(GEMINI_MODEL)
+        for m in ["gemini-2.5-flash", "gemini-2.0-flash"]:
+            if m not in models_to_try:
+                models_to_try.append(m)
 
-        # Try user-configured model first, fallback to 2.5-flash then 1.5-flash
-        try:
-            print(f"Vintamie: Calling Gemini with model '{working_model_name}'...")
-            model = genai.GenerativeModel(working_model_name)
-            id_response = model.generate_content([*imgs, identify_prompt])
-        except Exception as e:
-            print(f"Vintamie: Model '{working_model_name}' failed: {e}. Trying fallback 'gemini-2.5-flash'...")
-            working_model_name = "gemini-2.5-flash"
+        working_model_name = None
+        id_response = None
+        last_error = None
+
+        for model_name in models_to_try:
             try:
-                model = genai.GenerativeModel(working_model_name)
+                print(f"Vintamie: Calling Gemini with model '{model_name}'...")
+                model = genai.GenerativeModel(model_name)
                 id_response = model.generate_content([*imgs, identify_prompt])
-            except Exception as e2:
-                print(f"Vintamie: Fallback model '{working_model_name}' failed: {e2}. Trying fallback 'gemini-1.5-flash'...")
-                working_model_name = "gemini-1.5-flash"
-                model = genai.GenerativeModel(working_model_name)
-                id_response = model.generate_content([*imgs, identify_prompt])
+                working_model_name = model_name
+                break
+            except Exception as e:
+                print(f"Vintamie: Model '{model_name}' failed: {e}")
+                last_error = e
+
+        if not id_response:
+            err_msg = str(last_error)
+            if "quota" in err_msg.lower() or "429" in err_msg or "resource_exhausted" in err_msg.lower():
+                raise Exception("Das tägliche Kontingent für die kostenlose KI-Analyse ist aufgebraucht (Quota Exceeded 429). Bitte versuche es später erneut.")
+            raise Exception(f"Alle Gemini-Modelle zur Analyse fehlgeschlagen. Letzter Fehler: {err_msg}")
 
         search_query = id_response.text.strip().replace('"', '')
         print(f"Vintamie: Identifizierter Suchbegriff -> '{search_query}' (via {working_model_name})")
@@ -141,11 +149,17 @@ def analyze_item_image(image_paths: List[str], user = None) -> dict:
         }
 
         # Use the model that worked for Step 1
-        model = genai.GenerativeModel(working_model_name)
-        response = model.generate_content(
-            [*imgs, final_prompt],
-            generation_config=generation_config
-        )
+        try:
+            model = genai.GenerativeModel(working_model_name)
+            response = model.generate_content(
+                [*imgs, final_prompt],
+                generation_config=generation_config
+            )
+        except Exception as e:
+            err_msg = str(e)
+            if "quota" in err_msg.lower() or "429" in err_msg or "resource_exhausted" in err_msg.lower():
+                raise Exception("Das tägliche Kontingent für die kostenlose KI-Analyse ist aufgebraucht (Quota Exceeded 429). Bitte versuche es später erneut.")
+            raise Exception(f"Fehler bei der finalen KI-Erstellung: {err_msg}")
 
         # Parse the JSON response
         data = json.loads(response.text)
@@ -234,22 +248,30 @@ def regenerate_draft_field(image_paths: List[str], field: str, user = None) -> s
         else:
             raise ValueError(f"Ungültiges Feld zur Regeneration: {field}")
 
-        working_model_name = GEMINI_MODEL
-        model = genai.GenerativeModel(working_model_name)
-        
-        try:
-            response = model.generate_content([*imgs, prompt])
-        except Exception as e:
-            print(f"Model '{working_model_name}' failed: {e}. Trying fallback 'gemini-2.5-flash'...")
-            working_model_name = "gemini-2.5-flash"
+        models_to_try = []
+        if GEMINI_MODEL:
+            models_to_try.append(GEMINI_MODEL)
+        for m in ["gemini-2.5-flash", "gemini-2.0-flash"]:
+            if m not in models_to_try:
+                models_to_try.append(m)
+
+        response = None
+        last_error = None
+        for model_name in models_to_try:
             try:
-                model = genai.GenerativeModel(working_model_name)
+                print(f"Vintamie: Regenerating field '{field}' with model '{model_name}'...")
+                model = genai.GenerativeModel(model_name)
                 response = model.generate_content([*imgs, prompt])
-            except Exception as e2:
-                print(f"Fallback model '{working_model_name}' failed: {e2}. Trying fallback 'gemini-1.5-flash'...")
-                working_model_name = "gemini-1.5-flash"
-                model = genai.GenerativeModel(working_model_name)
-                response = model.generate_content([*imgs, prompt])
+                break
+            except Exception as e:
+                print(f"Vintamie: Model '{model_name}' failed during regeneration: {e}")
+                last_error = e
+
+        if not response:
+            err_msg = str(last_error)
+            if "quota" in err_msg.lower() or "429" in err_msg or "resource_exhausted" in err_msg.lower():
+                raise Exception("Das tägliche Kontingent für die kostenlose KI-Analyse ist aufgebraucht (Quota Exceeded 429). Bitte versuche es später erneut.")
+            raise Exception(f"Alle Gemini-Modelle zur Regeneration fehlgeschlagen. Letzter Fehler: {err_msg}")
 
         result = response.text.strip()
         # Clean any surrounding quotes
