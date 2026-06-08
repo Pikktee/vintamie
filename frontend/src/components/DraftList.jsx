@@ -52,7 +52,7 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
             
             <h2 className="onboarding-title">Verwandle deine Sachen in bares Geld</h2>
             <p className="onboarding-subtitle">
-              Vintamie automatisiert das Erstellen deiner Anzeigen mit künstlicher Intelligenz. Mach einfach ein Foto, um loszulegen!
+              Vintamie automatisiert das Erstellen deiner Anzeigen. Mach einfach ein Foto, um loszulegen!
             </p>
             
             <p className="onboarding-cta-text landscape-cta">
