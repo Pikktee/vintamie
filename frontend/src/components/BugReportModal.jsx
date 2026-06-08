@@ -1,32 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, AlertTriangle, CheckCircle, Camera, Loader } from 'lucide-react';
+import { X, Send, AlertTriangle, CheckCircle, Loader } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { submitBugReport } from '../utils/api';
 
 export default function BugReportModal({ onClose, currentView }) {
-  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [includeScreenshot, setIncludeScreenshot] = useState(true);
   const [screenshotBase64, setScreenshotBase64] = useState(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
-  // Auto-capture screenshot on mount
+  // Auto-capture screenshot on mount in the background
   useEffect(() => {
-    if (includeScreenshot) {
-      captureScreen();
-    } else {
-      setScreenshotBase64(null);
-    }
-  }, [includeScreenshot]);
+    captureScreen();
+  }, []);
 
   const captureScreen = async () => {
     setIsCapturing(true);
-    setError(null);
     try {
-      // We temporarily mark the modal overlay to be ignored by html2canvas
+      // Temporarily mark the modal overlay to be ignored by html2canvas
       const modalOverlay = document.querySelector('.bug-modal-overlay');
       if (modalOverlay) {
         modalOverlay.setAttribute('data-html2canvas-ignore', 'true');
@@ -41,8 +34,7 @@ export default function BugReportModal({ onClose, currentView }) {
       const base64 = canvas.toDataURL('image/jpeg', 0.7); // compress to jpeg for efficiency
       setScreenshotBase64(base64);
     } catch (err) {
-      console.error('Failed to capture screenshot:', err);
-      setError('Screenshot konnte nicht automatisch erstellt werden. Du kannst den Bericht trotzdem senden.');
+      console.error('Failed to capture screenshot in background:', err);
     } finally {
       setIsCapturing(false);
     }
@@ -50,13 +42,17 @@ export default function BugReportModal({ onClose, currentView }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title.trim() || !description.trim()) {
-      setError('Bitte fülle alle Pflichtfelder aus.');
+    if (!description.trim()) {
+      setError('Bitte beschreibe das Problem.');
       return;
     }
 
     setIsSubmitting(true);
     setError(null);
+
+    // Auto-generate title from the first line or first 60 characters of description
+    const firstLine = description.trim().split('\n')[0];
+    const generatedTitle = firstLine.substring(0, 60) || 'Bug Report';
 
     // Gather device info
     const deviceInfo = {
@@ -73,10 +69,10 @@ export default function BugReportModal({ onClose, currentView }) {
 
     try {
       await submitBugReport({
-        title,
+        title: generatedTitle,
         description,
         device_info: JSON.stringify(deviceInfo),
-        screenshot_base64: includeScreenshot ? screenshotBase64 : null
+        screenshot_base64: screenshotBase64
       });
       setSuccess(true);
       setTimeout(() => {
@@ -115,20 +111,6 @@ export default function BugReportModal({ onClose, currentView }) {
             )}
 
             <div className="form-group">
-              <label htmlFor="bug-title">Kurztitel *</label>
-              <input
-                id="bug-title"
-                type="text"
-                className="form-control"
-                placeholder="z. B. Kamera stürzt ab beim Foto schießen"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                disabled={isSubmitting}
-              />
-            </div>
-
-            <div className="form-group">
               <label htmlFor="bug-desc">Beschreibung des Problems *</label>
               <textarea
                 id="bug-desc"
@@ -138,45 +120,9 @@ export default function BugReportModal({ onClose, currentView }) {
                 onChange={(e) => setDescription(e.target.value)}
                 required
                 disabled={isSubmitting}
+                style={{ minHeight: '150px' }}
               />
             </div>
-
-            <div className="form-group checkbox-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-              <input
-                id="include-screenshot-cb"
-                type="checkbox"
-                checked={includeScreenshot}
-                onChange={(e) => setIncludeScreenshot(e.target.checked)}
-                disabled={isSubmitting || isCapturing}
-                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-              />
-              <label htmlFor="include-screenshot-cb" style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', cursor: 'pointer', margin: 0, fontWeight: 500 }}>
-                Screenshot der aktuellen Ansicht mitsenden
-              </label>
-            </div>
-
-            {includeScreenshot && (
-              <div className="bug-screenshot-preview-container">
-                {isCapturing ? (
-                  <div className="bug-screenshot-loading">
-                    <Loader className="spinner" size={20} />
-                    <span>Erstelle Screenshot...</span>
-                  </div>
-                ) : screenshotBase64 ? (
-                  <div className="bug-screenshot-preview">
-                    <img src={screenshotBase64} alt="Screenshot Vorschau" />
-                    <div className="screenshot-badge">
-                      <Camera size={12} />
-                      <span>Auto-Screenshot</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bug-screenshot-failed">
-                    <span>Kein Screenshot erfasst.</span>
-                  </div>
-                )}
-              </div>
-            )}
 
             <div className="bug-modal-footer">
               <button
@@ -190,7 +136,7 @@ export default function BugReportModal({ onClose, currentView }) {
               <button
                 type="submit"
                 className="btn btn-primary"
-                disabled={isSubmitting || isCapturing}
+                disabled={isSubmitting}
               >
                 {isSubmitting ? (
                   <>
