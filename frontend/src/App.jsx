@@ -174,15 +174,6 @@ export default function App() {
         <header className="app-header" style={{
           position: 'sticky',
           top: 0,
-          background: 'rgba(14, 18, 26, 0.75)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderBottom: '1px solid var(--glass-border)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 1.25rem',
-          height: '56px',
           zIndex: 110,
           boxShadow: '0 4px 30px rgba(0, 0, 0, 0.2)'
         }}>
