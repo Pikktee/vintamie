@@ -1,15 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Upload, Image as ImageIcon, Sparkles, X, RotateCw } from 'lucide-react';
+import { Camera, Upload, Image as ImageIcon, Sparkles, X, RotateCw, AlertCircle } from 'lucide-react';
 
 const CameraCapture = ({ 
   selectedImages = [], 
   setSelectedImages, 
   onAnalysisStart, 
-  initialError, 
+  analysisError, 
+  onClearError, 
   onClose 
 }) => {
   const [facingMode, setFacingMode] = useState('environment'); // 'environment' or 'user'
-  const [error, setError] = useState(initialError);
+  const [error, setError] = useState(null);
   const [flash, setFlash] = useState(false);
 
   const videoRef = useRef(null);
@@ -49,9 +50,7 @@ const CameraCapture = ({
     }
   };
 
-  useEffect(() => {
-    setError(initialError);
-  }, [initialError]);
+
 
   // Clean up camera stream on unmount
   useEffect(() => {
@@ -160,6 +159,53 @@ const CameraCapture = ({
 
   return (
     <div className="camera-container">
+      {/* Analysis Error Banner */}
+      {analysisError && (
+        <div style={{
+          position: 'absolute',
+          top: 'calc(12px + env(safe-area-inset-top, 0px))',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 'calc(100% - 2.5rem)',
+          maxWidth: '360px',
+          background: 'rgba(239, 68, 68, 0.2)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid rgba(239, 68, 68, 0.35)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '0.75rem 1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          color: '#fca5a5',
+          fontSize: '0.85rem',
+          zIndex: 140,
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)'
+        }}>
+          <AlertCircle size={16} style={{ flexShrink: 0, color: '#f87171' }} />
+          <span style={{ flexGrow: 1, lineHeight: '1.3' }}>{analysisError}</span>
+          <button 
+            onClick={onClearError}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#fca5a5',
+              cursor: 'pointer',
+              padding: '0.2rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '50%',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Hidden inputs */}
       <input
         ref={fileInputRef}

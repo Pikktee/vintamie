@@ -27,6 +27,17 @@ export default function Login({ onLoginSuccess }) {
     fetchConfig();
   }, []);
 
+  // Handle native Android Google Sign-In failure/cancellation
+  useEffect(() => {
+    window.onGoogleSignInFailure = (errorMsg) => {
+      setLoading(false);
+      setError(errorMsg || 'Google-Login abgebrochen.');
+    };
+    return () => {
+      delete window.onGoogleSignInFailure;
+    };
+  }, []);
+
   // Handle Google Sign-In response
   const handleGoogleCredentialResponse = async (response) => {
     setLoading(true);

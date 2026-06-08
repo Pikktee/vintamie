@@ -381,10 +381,17 @@ class MainActivity : AppCompatActivity() {
                 if (idToken != null) {
                     exchangeGoogleToken(idToken)
                 } else {
-                    runOnUiThread { Toast.makeText(this, "Google ID Token fehlt.", Toast.LENGTH_SHORT).show() }
+                    runOnUiThread { 
+                        Toast.makeText(this, "Google ID Token fehlt.", Toast.LENGTH_SHORT).show()
+                        webView.evaluateJavascript("window.onGoogleSignInFailure ? window.onGoogleSignInFailure('Google ID Token fehlt.') : null", null)
+                    }
                 }
             } catch (e: ApiException) {
-                runOnUiThread { Toast.makeText(this, "Google Login abgebrochen: ${e.statusCode}", Toast.LENGTH_SHORT).show() }
+                runOnUiThread { 
+                    Toast.makeText(this, "Google Login abgebrochen: ${e.statusCode}", Toast.LENGTH_SHORT).show()
+                    val statusText = if (e.statusCode == 12501) "Google-Login abgebrochen." else "Google-Login fehlgeschlagen (${e.statusCode})."
+                    webView.evaluateJavascript("window.onGoogleSignInFailure ? window.onGoogleSignInFailure('$statusText') : null", null)
+                }
             }
         }
     }
@@ -402,13 +409,19 @@ class MainActivity : AppCompatActivity() {
             
         okHttpClient.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread { Toast.makeText(this@MainActivity, "Server-Authentifizierung fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show() }
+                runOnUiThread { 
+                    Toast.makeText(this@MainActivity, "Server-Authentifizierung fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()
+                    webView.evaluateJavascript("window.onGoogleSignInFailure ? window.onGoogleSignInFailure('Verbindung zum Server fehlgeschlagen.') : null", null)
+                }
             }
             
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (!response.isSuccessful) {
-                        runOnUiThread { Toast.makeText(this@MainActivity, "Fehler beim Google-Login im Backend.", Toast.LENGTH_LONG).show() }
+                        runOnUiThread { 
+                            Toast.makeText(this@MainActivity, "Fehler beim Google-Login im Backend.", Toast.LENGTH_LONG).show()
+                            webView.evaluateJavascript("window.onGoogleSignInFailure ? window.onGoogleSignInFailure('Fehler bei der Anmeldung im Backend.') : null", null)
+                        }
                         return
                     }
                     val bodyString = response.body?.string() ?: return
@@ -418,6 +431,11 @@ class MainActivity : AppCompatActivity() {
                     if (jwtToken.isNotEmpty()) {
                         runOnUiThread {
                             injectJwtToken(jwtToken)
+                        }
+                    } else {
+                        runOnUiThread {
+                            Toast.makeText(this@MainActivity, "Google-Token-Austausch ungültig.", Toast.LENGTH_LONG).show()
+                            webView.evaluateJavascript("window.onGoogleSignInFailure ? window.onGoogleSignInFailure('Ungültige Antwort vom Server.') : null", null)
                         }
                     }
                 }
@@ -597,10 +615,18 @@ class MainActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            super.onBackPressed()
+        webView.evaluateJavascript("window.onAndroidBack ? window.onAndroidBack() : false") { result ->
+            if (result == "true") {
+                // Handled by React app, do nothing
+            } else {
+                runOnUiThread {
+                    if (webView.canGoBack()) {
+                        webView.goBack()
+                    } else {
+                        super.onBackPressed()
+                    }
+                }
+            }
         }
     }
 }

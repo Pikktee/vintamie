@@ -21,6 +21,14 @@ export default function App() {
   const [route, setRoute] = useState(window.location.hash || '#/');
   const [capturedImages, setCapturedImages] = useState([]);
   const [abortController, setAbortController] = useState(null);
+  const [prevView, setPrevView] = useState('list');
+
+  // Track previous view for closing camera/getting back
+  useEffect(() => {
+    if (view !== 'capture' && view !== 'analyzing') {
+      setPrevView(view);
+    }
+  }, [view]);
 
   // Sync hash routing
   useEffect(() => {
@@ -30,6 +38,32 @@ export default function App() {
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
+
+  // Handle Android physical back gesture
+  useEffect(() => {
+    window.onAndroidBack = () => {
+      if (view === 'capture') {
+        capturedImages.forEach(img => URL.revokeObjectURL(img.previewUrl));
+        setCapturedImages([]);
+        setAnalysisError(null);
+        setView(prevView || 'list');
+        return true;
+      } else if (view === 'detail') {
+        setView('list');
+        setSelectedDraft(null);
+        fetchDrafts();
+        return true;
+      } else if (view === 'settings') {
+        setView('list');
+        return true;
+      }
+      return false;
+    };
+
+    return () => {
+      delete window.onAndroidBack;
+    };
+  }, [view, prevView, capturedImages]);
 
   // Check auth state on mount and manage redirects
   useEffect(() => {
@@ -322,11 +356,13 @@ export default function App() {
               selectedImages={capturedImages}
               setSelectedImages={setCapturedImages}
               onAnalysisStart={handleUploadAndAnalyze}
-              initialError={analysisError}
+              analysisError={analysisError}
+              onClearError={() => setAnalysisError(null)}
               onClose={() => {
                 capturedImages.forEach(img => URL.revokeObjectURL(img.previewUrl));
                 setCapturedImages([]);
-                setView('list');
+                setAnalysisError(null);
+                setView(prevView || 'list');
               }}
             />
           )}
@@ -399,6 +435,7 @@ export default function App() {
           }}>
             <button
               onClick={() => {
+                setAnalysisError(null);
                 setView('capture');
               }}
               style={{
