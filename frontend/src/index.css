@@ -2571,6 +2571,7 @@ select.form-control {
   transition: opacity 0.25s ease;
   width: 100%;
   max-width: 100%;
+  min-width: 0; /* Prevents flexbox items from expanding beyond container width */
   overflow: hidden;
 }
 
