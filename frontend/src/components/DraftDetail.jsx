@@ -259,11 +259,6 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
         
         {isAndroidApp ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(9, 176, 183, 0.05)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.825rem', border: '1px solid rgba(9, 176, 183, 0.1)', color: '#a5f3fc' }}>
-              <Smartphone size={16} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: '0.1rem' }} />
-              <span>Vintamie-App erkannt. Autofill-Prozess startet direkt in der Plattform-WebView.</span>
-            </div>
-            
             <button 
               className="btn btn-vinted" 
               onClick={() => handlePostInApp('vinted')}
