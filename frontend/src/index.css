@@ -1192,7 +1192,7 @@ select.form-control {
   box-sizing: border-box;
 }
 
-.onboarding-hero {
+.onboarding-content-layout {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1232,6 +1232,13 @@ select.form-control {
     transform: translateY(-8px) scale(1.03);
     filter: drop-shadow(0 0 25px rgba(236, 72, 153, 0.45));
   }
+}
+
+.onboarding-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 .onboarding-welcome-badge {
@@ -1305,6 +1312,18 @@ select.form-control {
   }
 }
 
+.landscape-cta {
+  display: none;
+}
+
+.portrait-cta {
+  display: block;
+}
+
+.onboarding-arrow-landscape {
+  display: none;
+}
+
 .onboarding-arrow-container {
   height: 45px;
   position: relative;
@@ -1345,24 +1364,75 @@ select.form-control {
 /* Landscape/Short Screen Optimization */
 @media (max-height: 580px), (orientation: landscape) and (max-height: 550px) {
   .onboarding-wrapper {
+    flex-direction: row;
     justify-content: center;
-    padding: 0.25rem 0;
+    align-items: center;
+    max-width: 720px;
+    padding: 0.5rem 1rem;
+    gap: 1.5rem;
   }
 
-  .onboarding-hero {
+  .onboarding-arrow-landscape {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .onboarding-arrow-svg-left {
+    width: 40px;
+    height: 24px;
+    animation: arrowBounceLeft 2s ease-in-out infinite;
+    filter: drop-shadow(0 0 8px rgba(9, 176, 183, 0.5));
+  }
+
+  .onboarding-arrow-path-left {
+    stroke-dasharray: 6, 3;
+    animation: drawPathLeft 2.5s linear infinite;
+  }
+
+  @keyframes arrowBounceLeft {
+    0%, 100% {
+      transform: translateX(0);
+    }
+    50% {
+      transform: translateX(-6px);
+    }
+  }
+
+  @keyframes drawPathLeft {
+    to {
+      stroke-dashoffset: 18;
+    }
+  }
+
+  .onboarding-content-layout {
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+    justify-content: center;
+    gap: 1.75rem;
     margin: 0;
-    padding: 0.25rem 0;
+    padding: 0;
   }
 
   .onboarding-logo-glow {
     width: 90px;
     height: 90px;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0;
+    flex-shrink: 0;
   }
 
   .onboarding-logo-img {
     width: 50px;
     height: 50px;
+  }
+
+  .onboarding-info {
+    align-items: flex-start;
+    text-align: left;
+    flex: 1;
   }
 
   .onboarding-welcome-badge {
@@ -1374,25 +1444,28 @@ select.form-control {
   .onboarding-title {
     font-size: 1.35rem;
     margin-bottom: 0.5rem;
+    text-align: left;
   }
 
   .onboarding-subtitle {
     font-size: 0.85rem;
     max-width: 380px;
+    text-align: left;
   }
 
-  .onboarding-footer {
+  .landscape-cta {
+    display: block;
     margin-top: 0.5rem;
-    padding-bottom: 0;
-  }
-
-  .onboarding-cta-text {
+    text-align: left;
     font-size: 0.85rem;
-    max-width: 340px;
   }
 
-  .onboarding-arrow-container {
-    display: none; /* Hide arrow in compact heights and landscape views */
+  .portrait-cta {
+    display: none;
+  }
+
+  .portrait-footer {
+    display: none;
   }
 }
 

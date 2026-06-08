@@ -17,24 +17,57 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
   if (drafts.length === 0) {
     return (
       <div className="fade-in onboarding-wrapper">
-        <div className="onboarding-hero">
+        {/* Landscape Arrow (points left, visible only in landscape) */}
+        <div className="onboarding-arrow-landscape">
+          <svg className="onboarding-arrow-svg-left" viewBox="0 0 40 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M40,12 L2,12"
+              stroke="url(#arrow-grad-left)"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+              className="onboarding-arrow-path-left"
+            />
+            <path
+              d="M9,5 L2,12 L9,19"
+              stroke="var(--primary)"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <defs>
+              <linearGradient id="arrow-grad-left" x1="1" y1="0" x2="0" y2="0">
+                <stop offset="0%" stopColor="rgba(9, 176, 183, 0.1)" />
+                <stop offset="100%" stopColor="var(--primary)" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+
+        <div className="onboarding-content-layout">
           <div className="onboarding-logo-glow">
             <img src="/favicon.svg" alt="Vintamie Logo" className="onboarding-logo-img" />
           </div>
           
-          <div className="onboarding-welcome-badge">
-            <Sparkles size={14} />
-            <span>Willkommen bei Vintamie</span>
+          <div className="onboarding-info">
+            <div className="onboarding-welcome-badge">
+              <Sparkles size={14} />
+              <span>Willkommen bei Vintamie</span>
+            </div>
+            
+            <h2 className="onboarding-title">Verwandle Kleidung in bares Geld</h2>
+            <p className="onboarding-subtitle">
+              Vintamie automatisiert das Erstellen deiner Anzeigen mit künstlicher Intelligenz. Mach einfach ein Foto, um loszulegen!
+            </p>
+            
+            <p className="onboarding-cta-text landscape-cta">
+              Tippe links auf das Kamerasymbol, um deinen ersten Entwurf zu erstellen!
+            </p>
           </div>
-          
-          <h2 className="onboarding-title">Verwandle Kleidung in bares Geld</h2>
-          <p className="onboarding-subtitle">
-            Vintamie automatisiert das Erstellen deiner Anzeigen mit künstlicher Intelligenz. Mach einfach ein Foto, um loszulegen!
-          </p>
         </div>
 
-        <div className="onboarding-footer">
-          <p className="onboarding-cta-text">
+        {/* Portrait Footer (CTA + Arrow pointing down, visible only in portrait) */}
+        <div className="onboarding-footer portrait-footer">
+          <p className="onboarding-cta-text portrait-cta">
             Tippe unten auf das Kamerasymbol, um deinen ersten Entwurf zu erstellen!
           </p>
           
@@ -43,14 +76,14 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
               <path
                 d="M12,0 L12,38"
                 stroke="url(#arrow-grad)"
-                strokeWidth="3"
+                strokeWidth="3.5"
                 strokeLinecap="round"
                 className="onboarding-arrow-path"
               />
               <path
                 d="M5,31 L12,38 L19,31"
                 stroke="var(--primary)"
-                strokeWidth="3"
+                strokeWidth="3.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
