@@ -20,15 +20,7 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
         {/* Landscape Arrow (points left, visible only in landscape) */}
         <div className="onboarding-arrow-landscape">
           <svg className="onboarding-arrow-svg-left" viewBox="0 0 40 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            {/* Solid background shaft line */}
-            <path
-              d="M40,12 L2,12"
-              stroke="var(--primary)"
-              strokeWidth="3"
-              opacity="0.3"
-              strokeLinecap="round"
-            />
-            {/* Animated dashed overlay shaft line */}
+            {/* Solid shaft line */}
             <path
               d="M40,12 L2,12"
               stroke="var(--primary)"
@@ -77,15 +69,7 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
           
           <div className="onboarding-arrow-container">
             <svg className="onboarding-arrow-svg" viewBox="0 0 24 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-              {/* Solid background shaft line */}
-              <path
-                d="M12,2 L12,38"
-                stroke="var(--primary)"
-                strokeWidth="3"
-                opacity="0.3"
-                strokeLinecap="round"
-              />
-              {/* Animated dashed overlay shaft line */}
+              {/* Solid shaft line */}
               <path
                 d="M12,2 L12,38"
                 stroke="var(--primary)"

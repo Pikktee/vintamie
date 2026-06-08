@@ -1343,8 +1343,7 @@ select.form-control {
 }
 
 .onboarding-arrow-path {
-  stroke-dasharray: 6, 3;
-  animation: drawPath 2.5s linear infinite;
+  /* Solid line, no dashed animation needed */
 }
 
 @keyframes arrowBounce {
@@ -1356,11 +1355,7 @@ select.form-control {
   }
 }
 
-@keyframes drawPath {
-  to {
-    stroke-dashoffset: -18;
-  }
-}
+/* drawPath keyframes removed */
 
 /* Landscape/Short Screen Optimization */
 @media (max-height: 580px), (orientation: landscape) and (max-height: 550px) {
@@ -1389,8 +1384,7 @@ select.form-control {
   }
 
   .onboarding-arrow-path-left {
-    stroke-dasharray: 6, 3;
-    animation: drawPathLeft 2.5s linear infinite;
+    /* Solid line, no dashed animation needed */
   }
 
   @keyframes arrowBounceLeft {
@@ -1402,11 +1396,7 @@ select.form-control {
     }
   }
 
-  @keyframes drawPathLeft {
-    to {
-      stroke-dashoffset: 18;
-    }
-  }
+  /* drawPathLeft keyframes removed */
 
   .onboarding-content-layout {
     flex-direction: row;
