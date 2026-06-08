@@ -11,6 +11,8 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+
 def analyze_item_image(image_path: str) -> dict:
     """
     Step 1: Identifies search keywords from the image.
@@ -24,7 +26,7 @@ def analyze_item_image(image_path: str) -> dict:
     try:
         # Load image
         img = Image.open(image_path)
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        model = genai.GenerativeModel(GEMINI_MODEL)
 
         # --- STEP 1: Identify search keywords ---
         identify_prompt = (
