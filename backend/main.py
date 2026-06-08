@@ -63,7 +63,7 @@ def run_migrations():
 
 run_migrations()
 
-app = FastAPI(title="Vintamie API", version="2.2.56")
+app = FastAPI(title="Vintamie API", version="2.2.57")
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -587,6 +587,15 @@ APK_FILENAME = "vintamie-latest.apk"
 
 @app.get("/api/app/version")
 def get_app_version():
+    version_path = os.path.join(APK_DIR, "apk-version.txt")
+    if os.path.exists(version_path):
+        try:
+            with open(version_path, "r") as f:
+                stored_version = f.read().strip()
+                if stored_version:
+                    return {"version": stored_version}
+        except Exception:
+            pass
     return {"version": app.version}
 
 @app.get("/api/app/latest-apk")
@@ -603,6 +612,7 @@ def download_latest_apk():
 @app.post("/api/app/upload-apk")
 async def upload_apk(
     file: UploadFile = File(...),
+    version: Optional[str] = None,
     x_upload_secret: Optional[str] = Header(None)
 ):
     secret = os.getenv("APP_UPLOAD_SECRET")
@@ -615,4 +625,12 @@ async def upload_apk(
     with open(apk_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
         
+    if version:
+        try:
+            version_path = os.path.join(APK_DIR, "apk-version.txt")
+            with open(version_path, "w") as f:
+                f.write(version)
+        except Exception:
+            pass
+            
     return {"status": "success", "message": f"APK-Datei erfolgreich aktualisiert (gespeichert unter {APK_DIR})."}

@@ -35,6 +35,7 @@ jobs:
       - name: Upload APK to Vintamie Backend
         working-directory: android
         run: |
+          VERSION=$(cat ../VERSION)
           curl -f -X POST -H "X-Upload-Secret: ${{ secrets.APP_UPLOAD_SECRET }}" \
                -F "file=@app/build/outputs/apk/debug/app-debug.apk" \
-               https://api.vintamie.henrikheil.net/api/app/upload-apk
+               "https://api.vintamie.henrikheil.net/api/app/upload-apk?version=$VERSION"
