@@ -20,26 +20,30 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
         {/* Landscape Arrow (points left, visible only in landscape) */}
         <div className="onboarding-arrow-landscape">
           <svg className="onboarding-arrow-svg-left" viewBox="0 0 40 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            {/* Solid background shaft line */}
             <path
               d="M40,12 L2,12"
-              stroke="url(#arrow-grad-left)"
-              strokeWidth="3.5"
+              stroke="var(--primary)"
+              strokeWidth="3"
+              opacity="0.3"
+              strokeLinecap="round"
+            />
+            {/* Animated dashed overlay shaft line */}
+            <path
+              d="M40,12 L2,12"
+              stroke="var(--primary)"
+              strokeWidth="3"
               strokeLinecap="round"
               className="onboarding-arrow-path-left"
             />
+            {/* Arrowhead */}
             <path
               d="M9,5 L2,12 L9,19"
               stroke="var(--primary)"
-              strokeWidth="3.5"
+              strokeWidth="3"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            <defs>
-              <linearGradient id="arrow-grad-left" x1="1" y1="0" x2="0" y2="0">
-                <stop offset="0%" stopColor="rgba(9, 176, 183, 0.1)" />
-                <stop offset="100%" stopColor="var(--primary)" />
-              </linearGradient>
-            </defs>
           </svg>
         </div>
 
@@ -72,27 +76,31 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
           </p>
           
           <div className="onboarding-arrow-container">
-            <svg className="onboarding-arrow-svg" viewBox="0 0 24 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg className="onboarding-arrow-svg" viewBox="0 0 24 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* Solid background shaft line */}
               <path
-                d="M12,0 L12,38"
-                stroke="url(#arrow-grad)"
-                strokeWidth="3.5"
+                d="M12,2 L12,78"
+                stroke="var(--primary)"
+                strokeWidth="3"
+                opacity="0.3"
+                strokeLinecap="round"
+              />
+              {/* Animated dashed overlay shaft line */}
+              <path
+                d="M12,2 L12,78"
+                stroke="var(--primary)"
+                strokeWidth="3"
                 strokeLinecap="round"
                 className="onboarding-arrow-path"
               />
+              {/* Arrowhead */}
               <path
-                d="M5,31 L12,38 L19,31"
+                d="M5,71 L12,78 L19,71"
                 stroke="var(--primary)"
-                strokeWidth="3.5"
+                strokeWidth="3"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <defs>
-                <linearGradient id="arrow-grad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="rgba(9, 176, 183, 0.1)" />
-                  <stop offset="100%" stopColor="var(--primary)" />
-                </linearGradient>
-              </defs>
             </svg>
           </div>
         </div>
