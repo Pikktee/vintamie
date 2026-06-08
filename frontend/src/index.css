@@ -937,14 +937,152 @@ select.form-control {
 /* --- Vintamie Redesign Details View Styles --- */
 
 .detail-tabs-header {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(14, 18, 26, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 0.75rem 0.25rem;
+  margin-top: -1rem; /* Offset App container padding-top */
   margin-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 @media (min-width: 768px) or (orientation: landscape) {
   .detail-tabs-header {
-    display: none;
+    display: none !important;
   }
+}
+
+/* Unboxed layout for Draft Detail */
+.detail-section-unboxed {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-bottom: 2rem;
+  box-sizing: border-box;
+}
+
+.detail-section-title {
+  font-size: 1.15rem;
+  margin-bottom: 1.25rem;
+  font-family: var(--font-title);
+  font-weight: 700;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Thumbnail grid */
+.thumbnail-grid-item {
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm); 
+  overflow: hidden; 
+  cursor: pointer; 
+  border: 1px solid var(--glass-border);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.thumbnail-grid-item:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--primary-glow);
+}
+
+.thumbnail-grid-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.upload-thumbnail-btn {
+  border: 2px dashed var(--glass-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  gap: 0.25rem;
+}
+
+.upload-thumbnail-btn:hover {
+  background: rgba(9, 176, 183, 0.05);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* Modal for large photo views */
+.image-detail-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 9, 13, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1.5rem;
+  animation: modalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(12px);
+  }
+}
+
+.image-detail-modal-content {
+  position: relative;
+  max-width: 90%;
+  max-height: 75vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: modalScaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalScaleIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.image-detail-modal-img {
+  max-width: 100%;
+  max-height: 75vh;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--glass-border);
+}
+
+.image-detail-modal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  z-index: 1001;
 }
 
 .segmented-control {

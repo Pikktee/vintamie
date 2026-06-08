@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Copy, Check, ExternalLink, Smartphone, Monitor, RefreshCw, AlertCircle, Trash2, Plus, Sparkles, Upload, FileText, Share2 } from 'lucide-react';
+import { ArrowLeft, Copy, Check, ExternalLink, Smartphone, Monitor, RefreshCw, AlertCircle, Trash2, Plus, Sparkles, Upload, FileText, Share2, Camera, TrendingUp } from 'lucide-react';
 import { updateDraft, getImageUrl, getAuthToken, uploadDraftImages, deleteDraftImage, regenerateDraftField } from '../utils/api';
 
 export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
@@ -12,6 +12,7 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saved', 'saving', 'error'
   const [hasChanges, setHasChanges] = useState(false);
   const [copiedField, setCopiedField] = useState(null);
+  const [selectedModalImage, setSelectedModalImage] = useState(null);
   
   const [regeneratingField, setRegeneratingField] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -32,12 +33,7 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
     return draft.image_path ? [draft.image_path] : [];
   }, [draft.image_paths, draft.image_path]);
 
-  const [activeImage, setActiveImage] = useState('');
-
-  // Reset active image if draft or parsed list changes
-  useEffect(() => {
-    setActiveImage(allImages[0] || '');
-  }, [allImages]);
+  // activeImage state removed since we now use a grid of thumbnails and a modal detail view
 
   // Detect Android Webview container
   const isAndroidApp = typeof window.VintamieBridge !== 'undefined';
@@ -137,13 +133,6 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
     try {
       const updated = await uploadDraftImages(draft.id, files);
       onUpdateSuccess(updated);
-      
-      const parsed = JSON.parse(updated.image_paths || '[]');
-      if (parsed.length > 0) {
-        if (!activeImage || !allImages.includes(activeImage)) {
-          setActiveImage(parsed[parsed.length - 1]);
-        }
-      }
     } catch (err) {
       console.error(err);
       alert(`Fehler beim Hochladen der Bilder: ${err.message}`);
@@ -163,9 +152,8 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
       const updated = await deleteDraftImage(draft.id, imgUrl);
       onUpdateSuccess(updated);
       
-      const parsed = JSON.parse(updated.image_paths || '[]');
-      if (activeImage === imgUrl) {
-        setActiveImage(parsed[0] || '');
+      if (selectedModalImage === imgUrl) {
+        setSelectedModalImage(null);
       }
     } catch (err) {
       console.error(err);
@@ -198,7 +186,12 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
 
   const renderImageBox = () => {
     return (
-      <div className="detail-section-wrapper image-section-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', position: 'relative' }}>
+      <div className="detail-section-unboxed" style={{ position: 'relative' }}>
+        <h3 className="detail-section-title">
+          <Camera size={18} style={{ color: 'var(--primary)' }} />
+          <span>Fotos</span>
+        </h3>
+
         {/* Uploading overlay */}
         {uploadingImage && (
           <div style={{
@@ -229,129 +222,25 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
           onChange={handleAddImages} 
         />
 
-        {allImages.length > 0 ? (
-          <div style={{ position: 'relative', width: '100%' }}>
-            <img 
-              src={getImageUrl(activeImage)} 
-              alt={title}
-              style={{ width: '100%', maxHeight: '240px', objectFit: 'contain', borderRadius: 'var(--radius-sm)' }}
-            />
-            <button
-              type="button"
-              onClick={() => handleDeleteImage(activeImage)}
-              style={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                background: 'rgba(239, 68, 68, 0.85)',
-                border: 'none',
-                color: '#fff',
-                borderRadius: '50%',
-                width: '36px',
-                height: '36px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                transition: 'all 0.2s ease',
-                zIndex: 2
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.08)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              title="Dieses Bild löschen"
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-        ) : (
-          <div 
-            onClick={() => fileInputRef.current?.click()}
-            style={{ 
-              width: '100%', 
-              height: '180px', 
-              border: '2px dashed var(--glass-border)', 
-              borderRadius: 'var(--radius-sm)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.75rem',
-              cursor: 'pointer',
-              color: 'var(--text-secondary)',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--primary)';
-              e.currentTarget.style.color = 'var(--primary)';
-              e.currentTarget.style.background = 'rgba(9, 176, 183, 0.02)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'var(--glass-border)';
-              e.currentTarget.style.color = 'var(--text-secondary)';
-              e.currentTarget.style.background = 'transparent';
-            }}
-          >
-            <Upload size={28} />
-            <span style={{ fontSize: '0.85rem', fontWeight: '500' }}>Keine Bilder. Klicken zum Hinzufügen.</span>
-          </div>
-        )}
-
-        {/* Thumbnails + Add Button */}
-        <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', width: '100%', padding: '0.25rem 0', alignItems: 'center', overscrollBehaviorX: 'contain' }}>
+        {/* Grid of thumbnails */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '0.75rem', width: '100%' }}>
           {allImages.map((imgUrl, idx) => (
             <div 
               key={idx}
-              onClick={() => setActiveImage(imgUrl)}
-              style={{ 
-                width: '56px', 
-                height: '56px', 
-                borderRadius: 'var(--radius-sm)', 
-                overflow: 'hidden', 
-                cursor: 'pointer', 
-                flexShrink: 0,
-                border: activeImage === imgUrl ? '2px solid var(--primary)' : '1px solid var(--glass-border)',
-                opacity: activeImage === imgUrl ? 1 : 0.6,
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-              onMouseLeave={(e) => {
-                if (activeImage !== imgUrl) e.currentTarget.style.opacity = '0.6';
-              }}
+              onClick={() => setSelectedModalImage(imgUrl)}
+              className="thumbnail-grid-item"
             >
-              <img src={getImageUrl(imgUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={getImageUrl(imgUrl)} alt="" />
             </div>
           ))}
           
           <div 
             onClick={() => fileInputRef.current?.click()}
-            style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: 'var(--radius-sm)',
-              border: '2px dashed var(--glass-border)',
-              background: 'rgba(255,255,255,0.02)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              flexShrink: 0,
-              color: 'var(--text-secondary)',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--primary)';
-              e.currentTarget.style.color = 'var(--primary)';
-              e.currentTarget.style.background = 'rgba(9, 176, 183, 0.05)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'var(--glass-border)';
-              e.currentTarget.style.color = 'var(--text-secondary)';
-              e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-            }}
+            className="thumbnail-grid-item upload-thumbnail-btn"
             title="Bilder hinzufügen"
           >
-            <Plus size={18} />
+            <Plus size={20} />
+            <span style={{ fontSize: '0.65rem', fontWeight: '600' }}>Neu</span>
           </div>
         </div>
       </div>
@@ -360,9 +249,10 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
 
   const renderPublishingAssist = () => {
     return (
-      <div className="detail-section-wrapper">
-        <h3 style={{ fontSize: '1.15rem', marginBottom: '1rem', fontFamily: 'var(--font-title)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          Veröffentlichen Assistent
+      <div className="detail-section-unboxed">
+        <h3 className="detail-section-title">
+          <Share2 size={18} style={{ color: 'var(--primary)' }} />
+          <span>Veröffentlichen</span>
         </h3>
         
         {isAndroidApp ? (
@@ -476,7 +366,7 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
     } catch (e) {
       console.error(e);
       return (
-        <div className="detail-section-wrapper">
+        <div className="detail-section-unboxed">
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Vergleichsdaten beschädigt.</p>
         </div>
       );
@@ -484,9 +374,10 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
 
     if (!parsedSources || parsedSources.length === 0) {
       return (
-        <div className="detail-section-wrapper">
-          <h3 style={{ fontSize: '1.15rem', marginBottom: '0.5rem', fontFamily: 'var(--font-title)' }}>
-            Marktpreis-Vergleich
+        <div className="detail-section-unboxed">
+          <h3 className="detail-section-title">
+            <TrendingUp size={18} style={{ color: 'var(--primary)' }} />
+            <span>Marktpreis-Vergleich</span>
           </h3>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Keine Vergleichsangebote auf Kleinanzeigen gefunden.</p>
         </div>
@@ -509,9 +400,10 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
     }
 
     return (
-      <div className="detail-section-wrapper">
-        <h3 style={{ fontSize: '1.15rem', marginBottom: '1rem', fontFamily: 'var(--font-title)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          Marktpreis-Vergleich
+      <div className="detail-section-unboxed">
+        <h3 className="detail-section-title">
+          <TrendingUp size={18} style={{ color: 'var(--primary)' }} />
+          <span>Marktpreis-Vergleich</span>
         </h3>
 
         {count > 0 && (
@@ -574,7 +466,11 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
 
   const renderFormFields = () => {
     return (
-      <div className="detail-section-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div className="detail-section-unboxed" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <h3 className="detail-section-title">
+          <FileText size={18} style={{ color: 'var(--primary)' }} />
+          <span>Details</span>
+        </h3>
         
         {/* Title */}
         <div className="form-group" style={{ marginBottom: 0 }}>
@@ -698,60 +594,43 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
     );
   };
 
-  return (
-    <div className="fade-in">
-      {/* Top Navigation Row */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-        <button 
-          className="btn btn-secondary" 
-          onClick={onBack}
-          style={{ padding: '0.5rem 0.85rem', minHeight: '38px', gap: '0.25rem', fontSize: '0.85rem' }}
-        >
-          <ArrowLeft size={15} />
-          Zurück
-        </button>
-
-        {/* Auto-Save Status Indicator */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', fontWeight: '600' }}>
-          {saveStatus === 'saved' && (
-            <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <Check size={15} />
-              <span style={{ fontSize: '0.8rem' }}>Gesichert</span>
-            </span>
-          )}
-          {saveStatus === 'saving' && (
-            <span style={{ color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <RefreshCw size={12} style={{ animation: 'spin 1.5s linear infinite' }} />
-              <span style={{ fontSize: '0.8rem' }}>Sichert...</span>
-            </span>
-          )}
-          {saveStatus === 'error' && (
-            <span style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <AlertCircle size={15} />
-              <span style={{ fontSize: '0.8rem' }}>Speicherfehler</span>
-            </span>
-          )}
-        </div>
-        
-        <button 
-          className="btn btn-primary" 
-          onClick={onBack}
-          style={{ padding: '0.5rem 1.15rem', minHeight: '38px', fontSize: '0.85rem' }}
-        >
-          Fertig
-        </button>
+  const renderSaveStatus = () => {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', fontWeight: '600' }}>
+        {saveStatus === 'saved' && (
+          <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <Check size={14} />
+            <span style={{ fontSize: '0.8rem' }}>Gesichert</span>
+          </span>
+        )}
+        {saveStatus === 'saving' && (
+          <span style={{ color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <RefreshCw size={12} style={{ animation: 'spin 1.5s linear infinite' }} />
+            <span style={{ fontSize: '0.8rem' }}>Sichert...</span>
+          </span>
+        )}
+        {saveStatus === 'error' && (
+          <span style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <AlertCircle size={14} />
+            <span style={{ fontSize: '0.8rem' }}>Speicherfehler</span>
+          </span>
+        )}
       </div>
+    );
+  };
 
-      {/* Mobile Tab Navigation */}
+  return (
+    <div className="fade-in" style={{ position: 'relative' }}>
+      {/* Sticky Tab Header on Mobile */}
       {isMobile && (
         <div className="detail-tabs-header">
-          <div className="segmented-control">
+          <div className="segmented-control" style={{ flexGrow: 1 }}>
             <button 
               className={`segmented-control-btn ${activeTab === 'edit' ? 'active' : ''}`}
               onClick={() => setActiveTab('edit')}
             >
               <FileText size={15} />
-              <span>Details & Fotos</span>
+              <span>Übersicht</span>
             </button>
             <button 
               className={`segmented-control-btn ${activeTab === 'publish' ? 'active' : ''}`}
@@ -761,6 +640,16 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
               <span>Veröffentlichen</span>
             </button>
           </div>
+          <div style={{ flexShrink: 0, paddingLeft: '0.25rem' }}>
+            {renderSaveStatus()}
+          </div>
+        </div>
+      )}
+
+      {/* Save Status on Desktop */}
+      {!isMobile && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem', width: '100%' }}>
+          {renderSaveStatus()}
         </div>
       )}
 
@@ -789,6 +678,53 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
           </div>
           {/* Right Column */}
           {renderFormFields()}
+        </div>
+      )}
+
+      {/* Image Detail Popup Modal */}
+      {selectedModalImage && (
+        <div 
+          className="image-detail-modal"
+          onClick={() => setSelectedModalImage(null)}
+        >
+          <div 
+            className="image-detail-modal-content"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img 
+              src={getImageUrl(selectedModalImage)} 
+              alt="Anzeige-Foto Großansicht" 
+              className="image-detail-modal-img"
+            />
+          </div>
+          <div 
+            className="image-detail-modal-actions"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="btn btn-secondary"
+              onClick={() => setSelectedModalImage(null)}
+              style={{ minHeight: '40px', padding: '0.5rem 1.25rem' }}
+            >
+              Schließen
+            </button>
+            <button
+              className="btn"
+              onClick={() => handleDeleteImage(selectedModalImage)}
+              style={{
+                background: 'var(--danger)',
+                color: '#fff',
+                minHeight: '40px',
+                padding: '0.5rem 1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              <Trash2 size={16} />
+              Löschen
+            </button>
+          </div>
         </div>
       )}
     </div>
