@@ -15,7 +15,45 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 from typing import List
 
-def analyze_item_image(image_paths: List[str]) -> dict:
+def get_tone_instruction(user) -> str:
+    if not user:
+        return "Eine freundliche, ehrliche und ansprechende Verkaufsbeschreibung."
+    
+    tone = getattr(user, "ai_tone", "locker")
+    if tone == "locker":
+        return "Eine freundliche, ehrliche, ansprechende und lockere Verkaufsbeschreibung (gerne mit passenden, dezenten Emojis)."
+    elif tone == "professionell":
+        return "Eine sachliche, präzise und professionelle Verkaufsbeschreibung."
+    elif tone == "direkt":
+        return "Eine sehr direkte, kurze und schnörkellose Verkaufsbeschreibung ohne unnötige Floskeln."
+    elif tone == "custom":
+        custom_prompt = getattr(user, "ai_custom_tone", "") or ""
+        if custom_prompt:
+            return f"Eine Verkaufsbeschreibung, die genau folgenden Stil-/Tonfall-Vorgaben entspricht: {custom_prompt}"
+        return "Eine freundliche, ehrliche und ansprechende Verkaufsbeschreibung."
+    return "Eine freundliche, ehrliche und ansprechende Verkaufsbeschreibung."
+
+def apply_custom_footer(description: str, user) -> str:
+    if not user:
+        return description
+    footer = getattr(user, "ai_custom_footer", "") or ""
+    if not footer:
+        return description
+    if footer.strip() in description:
+        return description
+    
+    import re
+    # Match hashtags at the end of the text
+    hashtag_match = re.search(r'(\s*#[a-zA-Z0-9_-]+\s*)+$', description)
+    if hashtag_match:
+        start_idx = hashtag_match.start()
+        hashtags = description[start_idx:]
+        base_desc = description[:start_idx].rstrip()
+        return f"{base_desc}\n\n{footer}\n\n{hashtags.strip()}"
+    else:
+        return f"{description.rstrip()}\n\n{footer}"
+
+def analyze_item_image(image_paths: List[str], user = None) -> dict:
     """
     Step 1: Identifies search keywords from the images.
     Step 2: Searches Kleinanzeigen for active listings and price ranges.
@@ -76,6 +114,12 @@ def analyze_item_image(image_paths: List[str]) -> dict:
         # --- STEP 3: Final Listing Generation ---
         sources_str = json.dumps(comparison["listings"])
         
+        tone_instruction = get_tone_instruction(user)
+        category_pref = getattr(user, "default_category", "") or ""
+        category_instruction = ""
+        if category_pref and category_pref != "Keine Präferenz":
+            category_instruction = f" Bevorzuge dabei die Kategorie '{category_pref}', falls diese zum Artikel passt."
+
         final_prompt = (
             "Du bist Vintamie, eine visionäre Verkaufs-Assistentin für Second-Hand-Plattformen wie Vinted und Kleinanzeigen.\n"
             "Analysiere die Fotos dieses Artikels und erstelle eine Verkaufsanzeige. Nutze als zusätzlichen Kontext "
@@ -85,8 +129,8 @@ def analyze_item_image(image_paths: List[str]) -> dict:
             f"- Vergleichsangebote: {sources_str}\n\n"
             "Erstelle eine strukturierte JSON-Antwort mit folgenden Feldern auf Deutsch:\n"
             "- 'title': Ein aussagekräftiger Titel (max. 80 Zeichen), optimiert für Vinted/Kleinanzeigen.\n"
-            "- 'description': Eine freundliche, ehrliche und ansprechende Verkaufsbeschreibung. Nenne wichtige Details (wie Schnitt, Muster) und füge am Ende 3-4 relevante Hashtags hinzu.\n"
-            "- 'category': Eine passende Hauptkategorie auf Deutsch (z.B. 'Damenbekleidung', 'Herrenbekleidung', 'Kinder', 'Haus & Garten', 'Elektronik', 'Bücher & Medien', 'Sonstiges').\n"
+            f"- 'description': {tone_instruction} Nenne wichtige Details (wie Schnitt, Muster) und füge am Ende 3-4 relevante Hashtags hinzu.\n"
+            f"- 'category': Eine passende Hauptkategorie auf Deutsch (z.B. 'Damenbekleidung', 'Herrenbekleidung', 'Kinder', 'Haus & Garten', 'Elektronik', 'Bücher & Medien', 'Sonstiges').{category_instruction}\n"
             "- 'condition': Eine Einschätzung des Zustands. Wähle exakt einen dieser Werte: 'Neu', 'Sehr gut', 'Gut', 'Zufriedenstellend'.\n"
             "- 'price': Ein realistischer, geschätzter Verkaufspreis in Euro als ganze Zahl (Integer), orientiere dich eng an dem Medianpreis der Vergleichsangebote.\n\n"
             "Gib ausschließlich das JSON-Objekt zurück. Verwende kein Markdown-Formatting wie ```json."
@@ -106,14 +150,25 @@ def analyze_item_image(image_paths: List[str]) -> dict:
         # Parse the JSON response
         data = json.loads(response.text)
         
+        # Apply pricing offset if specified
+        raw_price = float(data.get("price", comparison["median_price"]))
+        if user and getattr(user, "pricing_offset", 0.0) is not None:
+            offset = getattr(user, "pricing_offset", 0.0)
+            if offset != 0.0:
+                raw_price = max(1.0, round(raw_price * (1.0 + offset / 100.0)))
+
+        # Apply custom footer to description
+        raw_description = str(data.get("description", "Keine Beschreibung verfügbar."))
+        raw_description = apply_custom_footer(raw_description, user)
+
         # Validate keys and types, injecting comparison sources
         validated_data = {
             "title": str(data.get("title", f"Vintage {search_query}")),
-            "description": str(data.get("description", "Keine Beschreibung verfügbar.")),
+            "description": raw_description,
             "category": str(data.get("category", "Sonstiges")),
             "condition": str(data.get("condition", "Gut")),
-            "price": float(data.get("price", comparison["median_price"])),
-            "sources": sources_str # Attach sources list as JSON string
+            "price": float(raw_price),
+            "sources": sources_str
         }
         
         return validated_data
@@ -122,7 +177,7 @@ def analyze_item_image(image_paths: List[str]) -> dict:
         print(f"CRITICAL: Error calling Gemini API: {e}")
         raise e
 
-def regenerate_draft_field(image_paths: List[str], field: str) -> str:
+def regenerate_draft_field(image_paths: List[str], field: str, user = None) -> str:
     """
     Regenerate a single draft field (title, description, or category) based on the draft's images.
     """
@@ -157,16 +212,23 @@ def regenerate_draft_field(image_paths: List[str], field: str) -> str:
                 "Gib AUSSCHLIESSLICH den Titel zurück, ohne Anführungszeichen, ohne Einleitung, ohne Markdown."
             )
         elif field == "description":
+            tone_instruction = get_tone_instruction(user)
             prompt = (
-                "Analysiere diese Fotos eines Artikels. Erzeuge eine neue, ansprechende, ehrliche und detaillierte Verkaufsbeschreibung "
-                "auf Deutsch. Erwähne wichtige Details wie Zustand, Farbe, Besonderheiten und füge am Ende 3-4 relevante Hashtags hinzu. "
+                "Analysiere diese Fotos eines Artikels. Erzeuge eine neue Verkaufsbeschreibung auf Deutsch. "
+                f"Beachte dabei folgende Stilvorgabe: {tone_instruction} "
+                "Erwähne wichtige Details wie Zustand, Farbe, Besonderheiten und füge am Ende 3-4 relevante Hashtags hinzu. "
                 "Gib AUSSCHLIESSLICH die Beschreibung zurück, ohne Einleitung, ohne zusätzliche Kommentare, ohne Markdown."
             )
         elif field == "category":
+            category_pref = getattr(user, "default_category", "") or ""
+            category_instruction = ""
+            if category_pref and category_pref != "Keine Präferenz":
+                category_instruction = f" Bevorzuge dabei die Kategorie '{category_pref}', falls diese zum Artikel passt."
+            
             prompt = (
                 "Analysiere diese Fotos eines Artikels. Wähle die passendste Hauptkategorie auf Deutsch aus. "
                 "Wähle exakt einen dieser Werte: 'Damenbekleidung', 'Herrenbekleidung', 'Kinder', 'Haus & Garten', 'Elektronik', "
-                "'Bücher & Medien', 'Sonstiges'. "
+                f"'Bücher & Medien', 'Sonstiges'.{category_instruction} "
                 "Gib AUSSCHLIESSLICH den genauen Kategorienamen als Text zurück, ohne Anführungszeichen, ohne Einleitung."
             )
         else:
@@ -196,6 +258,9 @@ def regenerate_draft_field(image_paths: List[str], field: str) -> str:
         elif result.startswith("'") and result.endswith("'"):
             result = result[1:-1]
         
+        if field == "description":
+            result = apply_custom_footer(result, user)
+            
         return result
 
     except Exception as e:

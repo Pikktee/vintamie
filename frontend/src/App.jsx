@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, FolderHeart, Sparkles, LogOut, User, Settings as SettingsIcon, Cloud } from 'lucide-react';
+import { Camera, FolderHeart, Sparkles, LogOut, User, Cloud } from 'lucide-react';
 import CameraCapture from './components/CameraCapture';
 import DraftList from './components/DraftList';
 import DraftDetail from './components/DraftDetail';
@@ -229,6 +229,7 @@ export default function App() {
             <Settings
               user={user}
               onLogout={handleLogout}
+              onUpdateUser={(updatedUser) => setUser(updatedUser)}
             />
           )}
         </div>
@@ -294,13 +295,13 @@ export default function App() {
             </button>
           </div>
 
-          {/* Right: Einstellungen */}
+          {/* Right: Profil */}
           <button
             onClick={() => setView('settings')}
             className={`nav-tab-btn ${view === 'settings' ? 'active' : ''}`}
           >
-            <SettingsIcon size={20} />
-            <span>Optionen</span>
+            <User size={20} />
+            <span>Profil</span>
           </button>
         </nav>
       )}

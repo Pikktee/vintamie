@@ -10,6 +10,14 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     google_id = Column(String, unique=True, index=True, nullable=True)
+    ai_tone = Column(String, default="locker", nullable=True)
+    ai_custom_tone = Column(String, nullable=True)
+    ai_custom_footer = Column(String, nullable=True)
+    pricing_offset = Column(Float, default=0.0, nullable=True)
+    default_zip = Column(String, nullable=True)
+    default_city = Column(String, nullable=True)
+    default_category = Column(String, nullable=True)
+    default_shipping = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

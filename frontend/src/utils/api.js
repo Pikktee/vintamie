@@ -116,6 +116,21 @@ export const getMe = async () => {
   return response.json();
 };
 
+export const updateMe = async (settingsData) => {
+  const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+    method: 'PUT',
+    headers: getHeaders(),
+    body: JSON.stringify(settingsData),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || 'Fehler beim Aktualisieren des Profils.');
+  }
+
+  return response.json();
+};
+
 // --- DRAFTS API (AUTHENTICATED) ---
 
 export const uploadAndAnalyze = async (files) => {

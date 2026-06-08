@@ -86,3 +86,10 @@ To release a new version, update version numbers in all configuration files, pus
     *   **Environment Variables:**
         *   `VITE_API_URL`: `https://api.vintamie.henrikheil.net`
     *   **Custom Domain:** `vintamie.henrikheil.net` (Port `8080`)
+
+---
+
+## Agent Integration & Auto-Deployment
+
+> [!IMPORTANT]
+> Nach jedem erfolgreichen Ergebnis im Chat (z. B. dem Abschluss einer Feature-Implementierung oder Fehlerbehebung) muss der KI-Agent automatisch ein Git-Push und Deployment durch Ausführen des Skripts `./deploy.py` initiieren.

@@ -125,6 +125,22 @@ async function openOverlay() {
     }
 
     try {
+      // Fetch user profile settings
+      let userSettings = null;
+      try {
+        const userRes = await fetch("http://localhost:8000/api/auth/me", {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (userRes.ok) {
+          userSettings = await userRes.json();
+        }
+      } catch (userErr) {
+        console.warn("Konnte User-Einstellungen nicht laden:", userErr);
+      }
+      window.vintamieUserSettings = userSettings;
+
       const response = await fetch("http://localhost:8000/api/drafts", {
         headers: {
           "Authorization": `Bearer ${token}`
@@ -241,6 +257,18 @@ async function fillKleinanzeigen(draft) {
         radio.dispatchEvent(new Event('change', { bubbles: true }));
         break;
       }
+    }
+  }
+
+  // Autofill Zip code (Postleitzahl) if configured in settings
+  const userSettings = window.vintamieUserSettings || {};
+  if (userSettings.default_zip) {
+    const postcodeInput = document.querySelector("#postad-postcode") || document.querySelector("input[name='postcode']") || document.querySelector("input[id*='postcode']") || document.querySelector("input[placeholder*='PLZ']");
+    if (postcodeInput) {
+      postcodeInput.value = userSettings.default_zip;
+      postcodeInput.dispatchEvent(new Event('input', { bubbles: true }));
+      postcodeInput.dispatchEvent(new Event('change', { bubbles: true }));
+      postcodeInput.dispatchEvent(new Event('blur', { bubbles: true })); // Trigger blur to resolve city in Kleinanzeigen
     }
   }
 

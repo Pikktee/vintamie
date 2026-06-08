@@ -23,9 +23,27 @@ class UserCreate(UserBase):
 class UserResponse(UserBase):
     id: int
     created_at: datetime
+    ai_tone: Optional[str] = "locker"
+    ai_custom_tone: Optional[str] = None
+    ai_custom_footer: Optional[str] = None
+    pricing_offset: Optional[float] = 0.0
+    default_zip: Optional[str] = None
+    default_city: Optional[str] = None
+    default_category: Optional[str] = None
+    default_shipping: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+class UserUpdate(BaseModel):
+    ai_tone: Optional[str] = None
+    ai_custom_tone: Optional[str] = None
+    ai_custom_footer: Optional[str] = None
+    pricing_offset: Optional[float] = None
+    default_zip: Optional[str] = None
+    default_city: Optional[str] = None
+    default_category: Optional[str] = None
+    default_shipping: Optional[str] = None
 
 # Draft Schemas
 class DraftBase(BaseModel):

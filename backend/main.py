@@ -39,12 +39,31 @@ def run_migrations():
     except Exception as e:
         db.rollback()
         print(f"Migration note: image_paths column might already exist. ({e})", flush=True)
-    finally:
-        db.close()
+
+    # User settings migrations
+    for col_name, col_type in [
+        ("ai_tone", "VARCHAR(50) DEFAULT 'locker'"),
+        ("ai_custom_tone", "VARCHAR(500)"),
+        ("ai_custom_footer", "VARCHAR(500)"),
+        ("pricing_offset", "FLOAT DEFAULT 0.0"),
+        ("default_zip", "VARCHAR(20)"),
+        ("default_city", "VARCHAR(100)"),
+        ("default_category", "VARCHAR(100)"),
+        ("default_shipping", "VARCHAR(200)")
+    ]:
+        try:
+            db.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}"))
+            db.commit()
+            print(f"Successfully ran migrations: added {col_name} column.", flush=True)
+        except Exception as e:
+            db.rollback()
+            print(f"Migration note: {col_name} column might already exist. ({e})", flush=True)
+            
+    db.close()
 
 run_migrations()
 
-app = FastAPI(title="Vintamie API", version="2.2.15")
+app = FastAPI(title="Vintamie API", version="2.2.16")
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -126,6 +145,19 @@ def login(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
 
 @app.get("/api/auth/me", response_model=schemas.UserResponse)
 def get_me(current_user: models.User = Depends(get_current_user)):
+    return current_user
+
+@app.put("/api/auth/me", response_model=schemas.UserResponse)
+def update_me(
+    user_update: schemas.UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    update_data = user_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(current_user, key, value)
+    db.commit()
+    db.refresh(current_user)
     return current_user
 
 @app.delete("/api/auth/me", status_code=status.HTTP_204_NO_CONTENT)
@@ -271,7 +303,7 @@ def upload_and_analyze(
 
     # Step-by-step AI + Live Scraper analysis
     try:
-        analysis = analyze_item_image(local_paths)
+        analysis = analyze_item_image(local_paths, user=current_user)
     except Exception as e:
         for p in local_paths:
             if os.path.exists(p):
@@ -529,7 +561,7 @@ def regenerate_draft_field_endpoint(
 
     from services.gemini_service import regenerate_draft_field
     try:
-        new_val = regenerate_draft_field(image_paths, req.field)
+        new_val = regenerate_draft_field(image_paths, req.field, user=current_user)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"KI-Regeneration fehlgeschlagen: {str(e)}")
 
