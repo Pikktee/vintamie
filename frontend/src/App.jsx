@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, FolderHeart, Sparkles, LogOut, User, Settings as SettingsIcon } from 'lucide-react';
+import { Camera, FolderHeart, Sparkles, LogOut, User, Settings as SettingsIcon, Cloud } from 'lucide-react';
 import CameraCapture from './components/CameraCapture';
 import DraftList from './components/DraftList';
 import DraftDetail from './components/DraftDetail';
@@ -142,173 +142,129 @@ export default function App() {
   }
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      minHeight: '100vh', 
-      paddingBottom: '100px',
-      paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)'
-    }}>
-      
+    <div className="app-shell">
+      {/* Top Header Brand Bar */}
+      <header className="app-header">
+        <div className="header-brand">
+          <img src="/favicon.svg" alt="Vintamie Logo" className="header-logo" />
+          <h1 className="header-title">vintamie</h1>
+        </div>
+        <div className="header-actions">
+          {view === 'list' && (
+            <span className="drafts-badge">
+              {drafts.length} {drafts.length === 1 ? 'Entwurf' : 'Entwürfe'}
+            </span>
+          )}
+          {view === 'capture' && (
+            <div className="status-badge">
+              <span className="status-dot online" />
+              <span>Live-Vorschau</span>
+            </div>
+          )}
+          {view === 'detail' && (
+            <div className="status-badge">
+              <Cloud size={12} style={{ color: 'var(--primary)' }} />
+              <span>Entwurf-Modus</span>
+            </div>
+          )}
+          {view === 'settings' && (
+            <button 
+              className="logout-icon-btn" 
+              onClick={handleLogout} 
+              title="Abmelden"
+            >
+              <LogOut size={18} />
+            </button>
+          )}
+        </div>
+      </header>
+
       {/* Main Content Area */}
-      <main className="container" style={{ flexGrow: 1 }}>
-        {view === 'capture' && (
-          <CameraCapture
-            onAnalysisStart={handleAnalysisStart}
-            onAnalysisSuccess={handleAnalysisSuccess}
-            onAnalysisError={handleAnalysisError}
-            initialError={analysisError}
-          />
-        )}
+      <main className="app-main">
+        <div className="container" style={{ 
+          paddingTop: '1rem', 
+          paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' 
+        }}>
+          {view === 'capture' && (
+            <CameraCapture
+              onAnalysisStart={handleAnalysisStart}
+              onAnalysisSuccess={handleAnalysisSuccess}
+              onAnalysisError={handleAnalysisError}
+              initialError={analysisError}
+            />
+          )}
 
-        {view === 'analyzing' && (
-          <div className="glass-panel" style={{ borderRadius: 'var(--radius-md)' }}>
-            <AnalysisLoader />
-          </div>
-        )}
+          {view === 'analyzing' && (
+            <div className="glass-panel" style={{ borderRadius: 'var(--radius-md)' }}>
+              <AnalysisLoader />
+            </div>
+          )}
 
-        {view === 'list' && (
-          <DraftList
-            drafts={drafts}
-            onSelectDraft={(draft) => {
-              setSelectedDraft(draft);
-              setView('detail');
-            }}
-            onDeleteDraft={handleDeleteDraft}
-          />
-        )}
+          {view === 'list' && (
+            <DraftList
+              drafts={drafts}
+              onSelectDraft={(draft) => {
+                setSelectedDraft(draft);
+                setView('detail');
+              }}
+              onDeleteDraft={handleDeleteDraft}
+            />
+          )}
 
-        {view === 'detail' && selectedDraft && (
-          <DraftDetail
-            draft={selectedDraft}
-            onBack={() => {
-              setView('list');
-              setSelectedDraft(null);
-              fetchDrafts(); // Sync changes
-            }}
-            onUpdateSuccess={handleUpdateSuccess}
-          />
-        )}
+          {view === 'detail' && selectedDraft && (
+            <DraftDetail
+              draft={selectedDraft}
+              onBack={() => {
+                setView('list');
+                setSelectedDraft(null);
+                fetchDrafts(); // Sync changes
+              }}
+              onUpdateSuccess={handleUpdateSuccess}
+            />
+          )}
 
-        {view === 'settings' && (
-          <Settings
-            user={user}
-            onLogout={handleLogout}
-          />
-        )}
+          {view === 'settings' && (
+            <Settings
+              user={user}
+              onLogout={handleLogout}
+            />
+          )}
+        </div>
       </main>
 
-      {/* Responsive Sticky Footer Navigation (App-like feel) */}
+      {/* Responsive Sticky Footer Navigation (Tinder style flat bottom bar) */}
       {!isInputFocused && (
-        <nav className="glass-panel" style={{
-          position: 'fixed',
-          bottom: '1rem',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: 'calc(100% - 2rem)',
-          maxWidth: '500px',
-          height: '70px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderRadius: '99px',
-          padding: '0 1.5rem',
-          border: '1px solid var(--glass-border)',
-          zIndex: 100,
-          boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-          background: 'rgba(11, 15, 23, 0.85)'
-        }}>
-        {/* Left: Entwürfe */}
-        <button
-          onClick={() => {
-            fetchDrafts();
-            setView('list');
-          }}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: view === 'list' || view === 'detail' ? 'var(--primary)' : 'var(--text-secondary)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.2rem',
-            cursor: 'pointer',
-            fontSize: '0.75rem',
-            fontWeight: '600',
-            transition: 'all 0.2s ease',
-            flex: '1',
-            textAlign: 'center'
-          }}
-        >
-          <FolderHeart size={20} />
-          <span>Entwürfe</span>
-        </button>
+        <nav className="app-nav">
+          {/* Left: Entwürfe */}
+          <button
+            onClick={() => {
+              fetchDrafts();
+              setView('list');
+            }}
+            className={`nav-tab-btn ${view === 'list' || view === 'detail' ? 'active' : ''}`}
+          >
+            <FolderHeart size={20} />
+            <span>Entwürfe</span>
+          </button>
 
-        {/* Center: Kreisrundes Kamera-Symbol (Floating Action Button) */}
-        <div style={{
-          position: 'relative',
-          top: '-15px',
-          width: '70px',
-          height: '70px',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 101
-        }}>
+          {/* Center: Camera Capture */}
           <button
             onClick={() => setView('capture')}
-            style={{
-              width: '60px',
-              height: '60px',
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, var(--primary) 0%, #068085 100%)',
-              border: '4px solid #080b11',
-              color: '#000',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 8px 20px rgba(9, 176, 183, 0.4)',
-              cursor: 'pointer',
-              transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease',
-              transform: view === 'capture' || view === 'analyzing' ? 'scale(1.1)' : 'scale(1)'
-            }}
-            title="Neue Aufnahme"
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.15)';
-              e.currentTarget.style.boxShadow = '0 10px 25px rgba(9, 176, 183, 0.6)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = view === 'capture' || view === 'analyzing' ? 'scale(1.1)' : 'scale(1)';
-              e.currentTarget.style.boxShadow = '0 8px 20px rgba(9, 176, 183, 0.4)';
-            }}
+            className={`nav-tab-btn camera-tab ${view === 'capture' || view === 'analyzing' ? 'active' : ''}`}
           >
-            <Camera size={24} />
+            <Camera size={20} />
+            <span>Kamera</span>
           </button>
-        </div>
 
-        {/* Right: Einstellungen */}
-        <button
-          onClick={() => setView('settings')}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: view === 'settings' ? 'var(--primary)' : 'var(--text-secondary)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.2rem',
-            cursor: 'pointer',
-            fontSize: '0.75rem',
-            fontWeight: '600',
-            transition: 'all 0.2s ease',
-            flex: '1',
-            textAlign: 'center'
-          }}
-        >
-          <SettingsIcon size={20} />
-          <span>Einstellungen</span>
-        </button>
-      </nav>
+          {/* Right: Einstellungen */}
+          <button
+            onClick={() => setView('settings')}
+            className={`nav-tab-btn ${view === 'settings' ? 'active' : ''}`}
+          >
+            <SettingsIcon size={20} />
+            <span>Optionen</span>
+          </button>
+        </nav>
       )}
     </div>
   );
