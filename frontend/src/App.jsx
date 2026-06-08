@@ -6,6 +6,7 @@ import DraftDetail from './components/DraftDetail';
 import AnalysisLoader from './components/AnalysisLoader';
 import Login from './components/Login';
 import Settings from './components/Settings';
+import LandingPage from './components/LandingPage';
 import { getDrafts, deleteDraft, isAuthenticated, setAuthToken, getMe } from './utils/api';
 
 export default function App() {
@@ -17,17 +18,47 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [route, setRoute] = useState(window.location.hash || '#/');
 
+  // Sync hash routing
+  useEffect(() => {
+    const handleHashChange = () => {
+      setRoute(window.location.hash || '#/');
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
-  // Check auth state on mount
+  // Check auth state on mount and manage redirects
   useEffect(() => {
     const isAuth = isAuthenticated();
     if (isAuth) {
       setToken(localStorage.getItem('vintamie_token'));
       fetchCurrentUser();
       fetchDrafts();
+      if (window.location.hash === '#/' || window.location.hash === '#/login' || !window.location.hash) {
+        window.location.hash = '#/app';
+      }
+    } else {
+      if (window.location.hash === '#/app') {
+        window.location.hash = '#/';
+      }
     }
   }, []);
+
+  // Enforce auth / guest redirects on route changes
+  useEffect(() => {
+    const isAuth = isAuthenticated();
+    if (isAuth) {
+      if (route === '#/' || route === '#/login') {
+        window.location.hash = '#/app';
+      }
+    } else {
+      if (route !== '#/' && route !== '#/login') {
+        window.location.hash = '#/';
+      }
+    }
+  }, [route, token]);
 
   // Detect input/textarea focus globally to hide navigation on mobile when keyboard is open
   useEffect(() => {
@@ -85,6 +116,7 @@ export default function App() {
     fetchCurrentUser();
     fetchDrafts();
     setView('list');
+    window.location.hash = '#/app';
   };
 
   const handleLogout = () => {
@@ -95,6 +127,7 @@ export default function App() {
     setSelectedDraft(null);
     localStorage.removeItem('vintamie_user_email');
     setView('list');
+    window.location.hash = '#/';
   };
 
   const handleDeleteDraft = async (id) => {
@@ -133,11 +166,72 @@ export default function App() {
     setSelectedDraft(updatedDraft);
   };
 
-  // If not authenticated, render Login/Register
+  // If not authenticated, render Landing Page or Login page
   if (!token) {
     return (
-      <div className="container" style={{ padding: '2rem 1rem' }}>
-        <Login onLoginSuccess={handleLoginSuccess} />
+      <div style={{ minHeight: '100dvh', background: 'var(--bg-gradient)', position: 'relative', overflowX: 'hidden' }}>
+        {/* Landing Page Header */}
+        <header className="app-header" style={{
+          position: 'sticky',
+          top: 0,
+          background: 'rgba(14, 18, 26, 0.75)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderBottom: '1px solid var(--glass-border)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 1.25rem',
+          height: '56px',
+          zIndex: 110,
+          boxShadow: '0 4px 30px rgba(0, 0, 0, 0.2)'
+        }}>
+          <div className="header-brand" style={{ cursor: 'pointer' }} onClick={() => window.location.hash = '#/'}>
+            <img src="/favicon.svg" alt="Vintamie Logo" className="header-logo" />
+            <h1 className="header-title">vintamie</h1>
+          </div>
+          <div className="header-actions">
+            {route === '#/login' ? (
+              <button 
+                className="btn" 
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  fontWeight: '600',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  padding: '0.4rem 1rem'
+                }}
+                onClick={() => window.location.hash = '#/'}
+              >
+                Startseite
+              </button>
+            ) : (
+              <button 
+                className="btn btn-primary" 
+                style={{
+                  padding: '0.4rem 1.2rem',
+                  fontSize: '0.85rem',
+                  fontWeight: '700',
+                  boxShadow: '0 4px 15px rgba(9, 176, 183, 0.25)'
+                }}
+                onClick={() => window.location.hash = '#/login'}
+              >
+                Login
+              </button>
+            )}
+          </div>
+        </header>
+
+        {/* Content container */}
+        <div className="container" style={{ padding: '2rem 1.25rem' }}>
+          {route === '#/login' ? (
+            <Login onLoginSuccess={handleLoginSuccess} />
+          ) : (
+            <LandingPage />
+          )}
+        </div>
       </div>
     );
   }
