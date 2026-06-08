@@ -56,7 +56,7 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
     'Neu',
     'Sehr gut',
     'Gut',
-    'Zufriedenstellend'
+    'In Ordnung'
   ];
 
   // Track if values differ from the last saved draft

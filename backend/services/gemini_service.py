@@ -137,7 +137,7 @@ def analyze_item_image(image_paths: List[str], user = None, user_condition: str 
             category_instruction = f" Bevorzuge dabei die Kategorie '{category_pref}', falls diese zum Artikel passt."
 
         catalog_prompt = kacat.build_catalog_prompt()
-        condition_prompt = "- 'condition': Eine Einschätzung des Zustands. Wähle exakt einen dieser Werte: 'Neu', 'Sehr gut', 'Gut', 'Zufriedenstellend'."
+        condition_prompt = "- 'condition': Eine Einschätzung des Zustands. Wähle exakt einen dieser Werte: 'Neu', 'Sehr gut', 'Gut', 'In Ordnung'."
         if user_condition and user_condition.strip() and user_condition.lower() != "automatisch":
             condition_prompt = f"- 'condition': Setze den Zustand exakt auf den Wert '{user_condition}'."
 

@@ -10,7 +10,7 @@ export default function AnalysisSpecs({ images = [], onBack, onStartAnalysis }) 
     { value: 'Neu', label: 'Neu', desc: 'Ungetragen mit Etikett oder OVP, ohne Gebrauchsspuren.' },
     { value: 'Sehr gut', label: 'Sehr gut', desc: 'Wenige Male getragen, minimale Gebrauchsspuren, Top-Zustand.' },
     { value: 'Gut', label: 'Gut', desc: 'Häufiger getragen, normale Gebrauchsspuren, keine großen Mängel.' },
-    { value: 'Zufriedenstellend', label: 'Zufriedenstellend', desc: 'Deutliche Gebrauchsspuren, eventuell kleine Mängel (wird unten beschrieben).' }
+    { value: 'In Ordnung', label: 'In Ordnung', desc: 'Deutliche Gebrauchsspuren, eventuell kleine Mängel (wird unten beschrieben).' }
   ];
 
   const handleSubmit = (e) => {
