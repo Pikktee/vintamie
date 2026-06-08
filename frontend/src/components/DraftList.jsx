@@ -283,9 +283,11 @@ function DraftListItem({ draft, onSelect, onDelete }) {
               </h3>
               
               <div className="draft-list-item-meta">
-                <span className="draft-list-item-badge category-badge">
-                  {draft.category}
-                </span>
+                {draft.category && (
+                  <span className="draft-list-item-badge category-badge">
+                    {draft.category}
+                  </span>
+                )}
                 <span className="draft-list-item-date">
                   <Calendar size={11} />
                   <span>{formatDate(draft.created_at)}</span>
@@ -296,7 +298,9 @@ function DraftListItem({ draft, onSelect, onDelete }) {
             {/* Right Section: Price & Actions */}
             <div className="draft-list-item-right">
               <div className="draft-list-item-price-container">
-                <span className="draft-list-item-price">{Math.round(draft.price)} €</span>
+                <span className="draft-list-item-price">
+                  {draft.price !== null && draft.price !== undefined ? `${Math.round(draft.price)} €` : '-- €'}
+                </span>
               </div>
               <button 
                 className="draft-list-item-delete-btn"

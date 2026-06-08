@@ -2604,9 +2604,10 @@ select.form-control {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s ease;
   width: 100%;
   max-width: 100%;
+  min-width: 0; /* Let it shrink to 100% of container and force text truncation */
   box-sizing: border-box; /* Crucial to include borders in 100% width calculations */
   flex: 0 0 100%;
 }
@@ -2614,6 +2615,13 @@ select.form-control {
 .SwipeableList-content:hover {
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow: var(--shadow-md);
+}
+
+.SwipeableList-content:active {
+  transform: scale(0.985);
+  background: rgba(25, 30, 42, 0.65);
+  border-color: rgba(9, 176, 183, 0.25);
+  box-shadow: var(--shadow-sm);
 }
 
 .SwipeableList-spacer {
@@ -2843,6 +2851,20 @@ select.form-control {
   /* Hide delete button on mobile since swipe-to-delete is primary */
   .draft-list-item-delete-btn {
     display: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .draft-list-item-main {
+    padding: 0.65rem 0.75rem;
+    gap: 0.75rem;
+    min-height: 74px;
+  }
+  
+  .draft-list-item-thumb-container {
+    width: 50px;
+    height: 50px;
+    border-radius: 8px;
   }
 }
 
