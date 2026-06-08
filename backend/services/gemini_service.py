@@ -24,9 +24,15 @@ def analyze_item_image(image_path: str) -> dict:
         return get_mock_analysis()
 
     try:
-        # Load image
+        # Load, resize, and compress image immediately to save memory and optimize performance
         img = Image.open(image_path)
-        model = genai.GenerativeModel(GEMINI_MODEL)
+        if img.width > 1024 or img.height > 1024:
+            img.thumbnail((1024, 1024))
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            img.save(image_path, format="JPEG", quality=85)
+            # Reopen the resized image
+            img = Image.open(image_path)
 
         # --- STEP 1: Identify search keywords ---
         identify_prompt = (
@@ -34,10 +40,29 @@ def analyze_item_image(image_path: str) -> dict:
             "den genauen Typ. Gib mir eine kurze Suchanfrage (3-6 Wörter auf Deutsch), die ich auf einem Marktplatz eingeben kann, "
             "um vergleichbare Angebote zu finden. Antworte AUSSCHLIESSLICH mit der Suchanfrage."
         )
-        
-        id_response = model.generate_content([img, identify_prompt])
+
+        working_model_name = GEMINI_MODEL
+        id_response = None
+
+        # Try user-configured model first, fallback to 2.5-flash then 1.5-flash
+        try:
+            print(f"Vintamie: Calling Gemini with model '{working_model_name}'...")
+            model = genai.GenerativeModel(working_model_name)
+            id_response = model.generate_content([img, identify_prompt])
+        except Exception as e:
+            print(f"Vintamie: Model '{working_model_name}' failed: {e}. Trying fallback 'gemini-2.5-flash'...")
+            working_model_name = "gemini-2.5-flash"
+            try:
+                model = genai.GenerativeModel(working_model_name)
+                id_response = model.generate_content([img, identify_prompt])
+            except Exception as e2:
+                print(f"Vintamie: Fallback model '{working_model_name}' failed: {e2}. Trying fallback 'gemini-1.5-flash'...")
+                working_model_name = "gemini-1.5-flash"
+                model = genai.GenerativeModel(working_model_name)
+                id_response = model.generate_content([img, identify_prompt])
+
         search_query = id_response.text.strip().replace('"', '')
-        print(f"Vintamie: Identifizierter Suchbegriff -> '{search_query}'")
+        print(f"Vintamie: Identifizierter Suchbegriff -> '{search_query}' (via {working_model_name})")
 
         # --- STEP 2: Live Price Comparison ---
         comparison = search_marketplace_prices(search_query)
@@ -66,6 +91,8 @@ def analyze_item_image(image_path: str) -> dict:
             "response_mime_type": "application/json",
         }
 
+        # Use the model that worked for Step 1
+        model = genai.GenerativeModel(working_model_name)
         response = model.generate_content(
             [img, final_prompt],
             generation_config=generation_config
@@ -87,8 +114,8 @@ def analyze_item_image(image_path: str) -> dict:
         return validated_data
 
     except Exception as e:
-        print(f"Error calling Gemini API: {e}. Returning mock fallback data.")
-        return get_mock_analysis()
+        print(f"CRITICAL: Error calling Gemini API: {e}")
+        raise e
 
 def get_mock_analysis() -> dict:
     """

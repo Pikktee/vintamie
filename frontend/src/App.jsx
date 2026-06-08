@@ -14,6 +14,7 @@ export default function App() {
   const [drafts, setDrafts] = useState([]);
   const [selectedDraft, setSelectedDraft] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState(null);
 
   // Check auth state on mount
   useEffect(() => {
@@ -81,16 +82,19 @@ export default function App() {
   };
 
   const handleAnalysisStart = () => {
+    setAnalysisError(null);
     setView('analyzing');
   };
 
   const handleAnalysisSuccess = (newDraft) => {
+    setAnalysisError(null);
     setDrafts((prev) => [newDraft, ...prev]);
     setSelectedDraft(newDraft);
     setView('detail');
   };
 
-  const handleAnalysisError = () => {
+  const handleAnalysisError = (errMsg) => {
+    setAnalysisError(errMsg);
     setView('capture');
   };
 
@@ -187,6 +191,7 @@ export default function App() {
             onAnalysisStart={handleAnalysisStart}
             onAnalysisSuccess={handleAnalysisSuccess}
             onAnalysisError={handleAnalysisError}
+            initialError={analysisError}
           />
         )}
 

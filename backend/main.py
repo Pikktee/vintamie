@@ -35,7 +35,7 @@ def run_migrations():
 
 run_migrations()
 
-app = FastAPI(title="Vintamie API", version="2.0.9")
+app = FastAPI(title="Vintamie API", version="2.1.0")
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -199,7 +199,18 @@ def upload_and_analyze(
         raise HTTPException(status_code=500, detail=f"Bild konnte nicht gespeichert werden: {e}")
 
     # Step-by-step AI + Live Scraper analysis
-    analysis = analyze_item_image(file_path)
+    try:
+        analysis = analyze_item_image(file_path)
+    except Exception as e:
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"KI-Analyse fehlgeschlagen: {str(e)}"
+        )
 
     # Save to SQLite database linked to the current user
     db_draft = models.Draft(

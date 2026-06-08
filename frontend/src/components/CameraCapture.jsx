@@ -2,12 +2,16 @@ import React, { useState, useRef } from 'react';
 import { Camera, Upload, Image as ImageIcon, Sparkles, AlertCircle } from 'lucide-react';
 import { uploadAndAnalyze } from '../utils/api';
 
-export default function CameraCapture({ onAnalysisStart, onAnalysisSuccess, onAnalysisError }) {
+export default function CameraCapture({ onAnalysisStart, onAnalysisSuccess, onAnalysisError, initialError }) {
   const [dragActive, setDragActive] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(initialError);
+
+  React.useEffect(() => {
+    setError(initialError);
+  }, [initialError]);
   
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
@@ -69,8 +73,9 @@ export default function CameraCapture({ onAnalysisStart, onAnalysisSuccess, onAn
       onAnalysisSuccess(result);
     } catch (err) {
       console.error(err);
-      setError(err.message || 'Die Analyse ist fehlgeschlagen. Versuche es erneut.');
-      onAnalysisError();
+      const errMsg = err.message || 'Die Analyse ist fehlgeschlagen. Versuche es erneut.';
+      setError(errMsg);
+      onAnalysisError(errMsg);
     } finally {
       setUploading(false);
     }

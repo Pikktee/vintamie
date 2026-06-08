@@ -5,18 +5,19 @@ export default function AnalysisLoader() {
   const [activeStep, setActiveStep] = useState(0);
 
   const steps = [
-    "Foto wird verarbeitet...",
-    "Klamotte wird identifiziert...",
-    "Farben und Muster werden analysiert...",
-    "Verkaufsbeschreibung wird verfasst...",
-    "Realistischer Preis wird ermittelt...",
-    "Angebot wird erstellt..."
+    "Foto wird analysiert... (und Staubkörner digital weggepustet)",
+    "Klamotten-Detektiv sucht nach Marke und Details...",
+    "Farben und Muster werden einer Stil-Prüfung unterzogen...",
+    "Beschreibung wird verfasst (mit extra viel Verkaufs-Charme)...",
+    "Preise werden auf Kleinanzeigen gescrapt... Bitte kurz Geduld!",
+    "Medianpreis wird berechnet (und 'Was letzte Preis'-Anfragen ignoriert)...",
+    "Das perfekte Angebot wird finalisiert... Gleich geschafft!"
   ];
 
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveStep((prev) => (prev + 1) % steps.length);
-    }, 2500);
+    }, 2800); // 2.8s per step for comfortable reading
 
     return () => clearInterval(interval);
   }, []);
@@ -63,27 +64,22 @@ export default function AnalysisLoader() {
         Vintamie arbeitet
       </h3>
       
-      {/* Cycling step text */}
-      <div style={{ height: '24px', overflow: 'hidden', position: 'relative', width: '100%' }}>
-        {steps.map((step, idx) => (
-          <p
-            key={idx}
-            style={{
-              position: 'absolute',
-              width: '100%',
-              left: 0,
-              top: 0,
-              color: 'var(--text-secondary)',
-              fontSize: '1rem',
-              fontWeight: '500',
-              opacity: idx === activeStep ? 1 : 0,
-              transform: idx === activeStep ? 'translateY(0)' : idx < activeStep ? 'translateY(-20px)' : 'translateY(20px)',
-              transition: 'opacity 0.5s ease, transform 0.5s ease'
-            }}
-          >
-            {step}
-          </p>
-        ))}
+      {/* Cycling step text (dynamic height, no overflow clipping) */}
+      <div style={{ minHeight: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '0 10px' }}>
+        <p
+          key={activeStep}
+          className="fade-in"
+          style={{
+            color: 'var(--text-secondary)',
+            fontSize: '1rem',
+            fontWeight: '500',
+            lineHeight: '1.4',
+            margin: 0,
+            animationDuration: '0.4s'
+          }}
+        >
+          {steps[activeStep]}
+        </p>
       </div>
 
       {/* Embedded keyframe styles */}
