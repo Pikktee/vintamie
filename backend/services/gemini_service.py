@@ -34,7 +34,13 @@ def get_tone_instruction(user) -> str:
         return "Eine freundliche, ehrliche und ansprechende Verkaufsbeschreibung."
     return "Eine freundliche, ehrliche und ansprechende Verkaufsbeschreibung."
 
+def strip_hashtags(text: str) -> str:
+    import re
+    # Remove any hashtags (lines starting with or ending with hashtags) at the end of the text
+    return re.sub(r'(\s*#[a-zA-Z0-9_-]+\s*)+$', '', text).rstrip()
+
 def apply_custom_footer(description: str, user) -> str:
+    description = strip_hashtags(description)
     if not user:
         return description
     footer = getattr(user, "ai_custom_footer", "") or ""
@@ -42,17 +48,7 @@ def apply_custom_footer(description: str, user) -> str:
         return description
     if footer.strip() in description:
         return description
-    
-    import re
-    # Match hashtags at the end of the text
-    hashtag_match = re.search(r'(\s*#[a-zA-Z0-9_-]+\s*)+$', description)
-    if hashtag_match:
-        start_idx = hashtag_match.start()
-        hashtags = description[start_idx:]
-        base_desc = description[:start_idx].rstrip()
-        return f"{base_desc}\n\n{footer}\n\n{hashtags.strip()}"
-    else:
-        return f"{description.rstrip()}\n\n{footer}"
+    return f"{description}\n\n{footer}"
 
 def analyze_item_image(image_paths: List[str], user = None, user_condition: str = None, user_details: str = None) -> dict:
     """
@@ -157,7 +153,7 @@ def analyze_item_image(image_paths: List[str], user = None, user_condition: str 
             f"{catalog_prompt}\n\n"
             "Erstelle eine strukturierte JSON-Antwort mit folgenden Feldern auf Deutsch:\n"
             "- 'title': Ein aussagekräftiger Titel (max. 80 Zeichen), optimiert für Vinted/Kleinanzeigen.\n"
-            f"- 'description': {tone_instruction} Nenne wichtige Details (wie Schnitt, Muster) und füge am Ende 3-4 relevante Hashtags hinzu.{details_instruction}\n"
+            f"- 'description': {tone_instruction} Nenne wichtige Details (wie Schnitt, Muster). Füge KEINE Hashtags hinzu.{details_instruction}\n"
             f"- 'category': Exakt einer der Kategorienamen aus der obigen Liste (z.B. 'Damenbekleidung').{category_instruction}\n"
             "- 'attributes': Ein JSON-Objekt mit den Zusatzfeldern der gewählten Kategorie. Schlüssel = exakte "
             "Feldbezeichnung aus der Liste, Wert = einer der erlaubten Werten (bzw. Freitext). Lass Felder weg, "
@@ -264,7 +260,7 @@ def regenerate_draft_field(image_paths: List[str], field: str, user = None) -> s
             prompt = (
                 "Analysiere diese Fotos eines Artikels. Erzeuge eine neue Verkaufsbeschreibung auf Deutsch. "
                 f"Beachte dabei folgende Stilvorgabe: {tone_instruction} "
-                "Erwähne wichtige Details wie Zustand, Farbe, Besonderheiten und füge am Ende 3-4 relevante Hashtags hinzu. "
+                "Erwähne wichtige Details wie Zustand, Farbe und Besonderheiten. Füge KEINE Hashtags hinzu. "
                 "Gib AUSSCHLIESSLICH die Beschreibung zurück, ohne Einleitung, ohne zusätzliche Kommentare, ohne Markdown."
             )
         elif field == "category":
@@ -341,7 +337,7 @@ def get_mock_analysis() -> dict:
     ]
     return {
         "title": "Nike Air Max 90 Weiß (Gr. 40)",
-        "description": "Schöne Nike Air Max 90 Sneaker in weiß. Guter getragener Zustand, leichte Gebrauchsspuren, aber voll funktionsfähig und bereit für die zweite Runde!\n\n#nike #airmax90 #sneaker #weiss",
+        "description": "Schöne Nike Air Max 90 Sneaker in weiß. Guter getragener Zustand, leichte Gebrauchsspuren, aber voll funktionsfähig und bereit für die zweite Runde!",
         "category": "Damenschuhe",
         "condition": "Gut",
         "price": 30.0,

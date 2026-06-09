@@ -221,7 +221,7 @@ export default function Settings({ user, onLogout, onUpdateUser }) {
                     Standard-Textbaustein (Footer)
                     <span className="tooltip-container">
                       <HelpCircle size={14} />
-                      <span className="tooltip-text">Dieser Text wird automatisch an jede Beschreibung (vor den Hashtags) angehängt.</span>
+                      <span className="tooltip-text">Dieser Text wird automatisch an jede Beschreibung angehängt.</span>
                     </span>
                   </label>
                   <input
