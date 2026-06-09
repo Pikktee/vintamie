@@ -2596,7 +2596,9 @@ select.form-control {
 
 /* Scroll snap container track */
 .SwipeableList-item.is-initialized .SwipeableList-track {
-  display: flex;
+  display: block;
+  white-space: nowrap;
+  font-size: 0;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: none;
@@ -2613,6 +2615,10 @@ select.form-control {
 
 /* Main card content */
 .SwipeableList-content {
+  display: inline-block;
+  vertical-align: top;
+  white-space: normal;
+  font-size: 1rem;
   position: relative;
   z-index: 3;
   scroll-snap-align: start;
@@ -2625,9 +2631,7 @@ select.form-control {
   transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s ease;
   width: 100%;
   max-width: 100%;
-  min-width: 0; /* Let it shrink to 100% of container and force text truncation */
   box-sizing: border-box; /* Crucial to include borders in 100% width calculations */
-  flex: 0 0 100%;
 }
 
 .SwipeableList-content:hover {
@@ -2643,10 +2647,13 @@ select.form-control {
 }
 
 .SwipeableList-spacer {
+  display: inline-block;
+  vertical-align: top;
+  white-space: normal;
+  font-size: 1rem;
   scroll-snap-align: start;
   background-color: transparent; /* Transparent to let red absolute element below shine through */
   z-index: 2;
-  flex: 0 0 100%;
   width: 100%;
   max-width: 100%;
 }
@@ -2731,9 +2738,6 @@ select.form-control {
 .draft-list-item-details {
   flex: 1;
   min-width: 0; /* Ensures truncation works */
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
 }
 
 .draft-list-item-title {
@@ -2755,6 +2759,7 @@ select.form-control {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.45rem;
+  margin-top: 0.4rem;
 }
 
 .draft-list-item-badge {

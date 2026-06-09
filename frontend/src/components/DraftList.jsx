@@ -275,8 +275,8 @@ function DraftListItem({ draft, onSelect, onDelete }) {
 
             {/* Middle Section: Text details */}
             <div className="draft-list-item-details">
-              <h3 className="draft-list-item-title">
-                {draft.title || 'Unbenanntes Angebot'}
+              <h3 className="draft-list-item-title" title={draft.title}>
+                {draft.title ? (draft.title.length > 60 ? draft.title.substring(0, 57) + '...' : draft.title) : 'Unbenanntes Angebot'}
               </h3>
               
               <div className="draft-list-item-meta">
