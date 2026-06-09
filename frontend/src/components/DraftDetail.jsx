@@ -633,11 +633,11 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
           <div className="draft-detail-grid fade-in">
             {renderImageBox()}
             {renderFormFields()}
+            {renderPriceComparison()}
           </div>
         ) : (
           <div className="draft-detail-grid fade-in">
             {renderPublishingAssist()}
-            {renderPriceComparison()}
           </div>
         )}
       </div>
