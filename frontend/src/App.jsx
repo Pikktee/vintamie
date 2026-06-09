@@ -404,6 +404,7 @@ export default function App() {
           {view === 'list' && (
             <DraftList
               drafts={drafts}
+              isLoading={loading}
               onSelectDraft={(draft) => {
                 setSelectedDraft(draft);
                 setView('detail');

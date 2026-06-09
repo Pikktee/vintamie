@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Tag, Sparkles, Trash2, Calendar, ShoppingBag, Camera, FolderHeart, ChevronRight } from 'lucide-react';
 import { getImageUrl } from '../utils/api';
 
-export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
+export default function DraftList({ drafts, isLoading, onSelectDraft, onDeleteDraft }) {
   const formatDate = (dateString) => {
     const d = new Date(dateString);
     return d.toLocaleDateString('de-DE', { 
@@ -14,7 +14,39 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
     });
   };
 
+  if (isLoading && drafts.length === 0) {
+    return (
+      <div className="fade-in">
+        <div className="drafts-header-row">
+          <h2 className="page-title">
+            Deine Angebote <span className="drafts-count-badge">...</span>
+          </h2>
+        </div>
+        <ul className="SwipeableList">
+          {[1, 2, 3].map((key) => (
+            <li key={key} className="draft-list-item-container-wrap">
+              <div className="draft-list-item-card" style={{ cursor: 'default', pointerEvents: 'none' }}>
+                <div className="draft-list-item-main">
+                  <div className="draft-list-item-thumb-container skeleton-pulse" />
+                  <div className="draft-list-item-details" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div className="skeleton-pulse" style={{ height: '1.2rem', width: '70%', borderRadius: '4px' }} />
+                    <div className="skeleton-pulse" style={{ height: '0.8rem', width: '35%', borderRadius: '4px' }} />
+                  </div>
+                  <div className="draft-list-item-right">
+                    <div className="skeleton-pulse" style={{ height: '1.8rem', width: '50px', borderRadius: 'var(--radius-sm)' }} />
+                    <ChevronRight size={18} className="draft-list-item-arrow" style={{ opacity: 0.15 }} />
+                  </div>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
   if (drafts.length === 0) {
+
     return (
       <div className="fade-in onboarding-wrapper">
         {/* Landscape Arrow (points left, visible only in landscape) */}
