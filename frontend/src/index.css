@@ -724,6 +724,9 @@ select.form-control {
   .draft-detail-grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   }
+  .price-comparison-section {
+    grid-column: 1 / -1;
+  }
 }
 
 /* Drafts List Grid and Card Styles */

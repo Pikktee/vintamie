@@ -408,7 +408,7 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
     }
 
     return (
-      <div className="detail-section-unboxed">
+      <div className="detail-section-unboxed price-comparison-section">
         <h3 className="detail-section-title">
           <TrendingUp size={18} style={{ color: 'var(--primary)' }} />
           <span>Marktpreis-Vergleich</span>
@@ -636,7 +636,7 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
             {renderPriceComparison()}
           </div>
         ) : (
-          <div className="draft-detail-grid fade-in">
+          <div className="fade-in">
             {renderPublishingAssist()}
           </div>
         )}
