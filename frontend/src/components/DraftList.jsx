@@ -291,10 +291,6 @@ function DraftListItem({ draft, onSelect, onDelete }) {
     <li 
       ref={itemRef}
       className="draft-list-item-container-wrap"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchCancel}
     >
       {/* Background delete action (red bar with stationary trash icon) */}
       <div 
@@ -303,6 +299,7 @@ function DraftListItem({ draft, onSelect, onDelete }) {
           left: isDeleting ? '0px' : `calc(100% - ${Math.abs(swipeOffset)}px)`,
           transition: isSwiping ? 'none' : 'left 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
         }}
+        onClick={handleDeleteClick}
       >
         <div className="draft-list-item-swipe-trash">
           <Trash2 size={22} color="white" />
@@ -314,6 +311,10 @@ function DraftListItem({ draft, onSelect, onDelete }) {
         ref={cardRef}
         className="draft-list-item-card"
         onClick={handleClick}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
         style={{
           transform: `translateX(${swipeOffset}px)`,
           transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
