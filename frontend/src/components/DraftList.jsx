@@ -249,7 +249,13 @@ function DraftListItem({ draft, onSelect, onDelete }) {
       onTouchCancel={handleTouchCancel}
     >
       {/* Background delete action (red bar with stationary trash icon) */}
-      <div className="draft-list-item-swipe-bg">
+      <div 
+        className="draft-list-item-swipe-bg"
+        style={{
+          left: isDeleting ? '0px' : `calc(100% - ${Math.abs(swipeOffset)}px)`,
+          transition: isSwiping ? 'none' : 'left 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+        }}
+      >
         <div className="draft-list-item-swipe-trash">
           <Trash2 size={22} color="white" />
         </div>
