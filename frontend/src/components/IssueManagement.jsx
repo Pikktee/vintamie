@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, Trash2, Calendar, Monitor, Mail, ExternalLink, ShieldAlert, Check, X } from 'lucide-react';
 import { getBugReports, deleteBugReport, getImageUrl } from '../utils/api';
 
@@ -7,6 +8,8 @@ export default function IssueManagement({ user, onBack }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeScreenshot, setActiveScreenshot] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState(null);
 
   useEffect(() => {
     if (user && !user.is_admin) {
@@ -30,14 +33,27 @@ export default function IssueManagement({ user, onBack }) {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Möchtest du diesen Bug Report wirklich löschen?')) return;
+  const handleDelete = (id) => {
+    setReportToDelete(id);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDeleteReport = async () => {
+    if (!reportToDelete) return;
+    setShowDeleteConfirm(false);
+    const id = reportToDelete;
+    setReportToDelete(null);
     try {
       await deleteBugReport(id);
       setIssues(prev => prev.filter(issue => issue.id !== id));
     } catch (err) {
       alert(err.message || 'Fehler beim Löschen.');
     }
+  };
+
+  const handleCancelDeleteReport = () => {
+    setShowDeleteConfirm(false);
+    setReportToDelete(null);
   };
 
   const formatDate = (dateStr) => {
@@ -191,6 +207,31 @@ export default function IssueManagement({ user, onBack }) {
           </div>
         </div>
       )}
+      <CustomConfirmModal 
+        isOpen={showDeleteConfirm}
+        onClose={handleCancelDeleteReport}
+        onConfirm={handleConfirmDeleteReport}
+        title="Bug Report löschen?"
+        message="Möchtest du diesen Bug Report wirklich dauerhaft löschen?"
+      />
     </div>
+  );
+}
+
+// Custom Confirmation Modal Portal
+function CustomConfirmModal({ isOpen, onClose, onConfirm, title, message }) {
+  if (!isOpen) return null;
+  return createPortal(
+    <div className="confirm-modal-overlay" onClick={onClose}>
+      <div className="confirm-modal-card" onClick={(e) => e.stopPropagation()}>
+        <h3>{title}</h3>
+        <p>{message}</p>
+        <div className="confirm-modal-buttons">
+          <button className="confirm-btn-cancel" onClick={onClose}>Abbrechen</button>
+          <button className="confirm-btn-delete" onClick={onConfirm}>Löschen</button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }

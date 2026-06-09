@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, Copy, Check, ExternalLink, Smartphone, Monitor, RefreshCw, AlertCircle, Trash2, Plus, Sparkles, Upload, FileText, Share2, Camera, TrendingUp } from 'lucide-react';
 import { updateDraft, getImageUrl, getAuthToken, uploadDraftImages, deleteDraftImage, regenerateDraftField } from '../utils/api';
 
@@ -13,6 +14,8 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
   const [hasChanges, setHasChanges] = useState(false);
   const [copiedField, setCopiedField] = useState(null);
   const [selectedModalImage, setSelectedModalImage] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [imageToDelete, setImageToDelete] = useState(null);
   
   const [regeneratingField, setRegeneratingField] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -144,10 +147,17 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
     }
   };
 
-  const handleDeleteImage = async (imgUrl) => {
+  const handleDeleteImage = (imgUrl) => {
     if (!imgUrl) return;
-    if (!confirm('Möchtest du dieses Bild wirklich aus dem Angebot löschen?')) return;
-    
+    setImageToDelete(imgUrl);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDeleteImage = async () => {
+    if (!imageToDelete) return;
+    setShowDeleteConfirm(false);
+    const imgUrl = imageToDelete;
+    setImageToDelete(null);
     try {
       const updated = await deleteDraftImage(draft.id, imgUrl);
       onUpdateSuccess(updated);
@@ -159,6 +169,11 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
       console.error(err);
       alert(`Fehler beim Löschen des Bildes: ${err.message}`);
     }
+  };
+
+  const handleCancelDeleteImage = () => {
+    setShowDeleteConfirm(false);
+    setImageToDelete(null);
   };
 
   const handleRegenerateField = async (field) => {
@@ -673,6 +688,31 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
           </div>
         </div>
       )}
+      <CustomConfirmModal 
+        isOpen={showDeleteConfirm}
+        onClose={handleCancelDeleteImage}
+        onConfirm={handleConfirmDeleteImage}
+        title="Bild löschen?"
+        message="Möchtest du dieses Bild wirklich aus dem Angebot löschen?"
+      />
     </div>
+  );
+}
+
+// Custom Confirmation Modal Portal
+function CustomConfirmModal({ isOpen, onClose, onConfirm, title, message }) {
+  if (!isOpen) return null;
+  return createPortal(
+    <div className="confirm-modal-overlay" onClick={onClose}>
+      <div className="confirm-modal-card" onClick={(e) => e.stopPropagation()}>
+        <h3>{title}</h3>
+        <p>{message}</p>
+        <div className="confirm-modal-buttons">
+          <button className="confirm-btn-cancel" onClick={onClose}>Abbrechen</button>
+          <button className="confirm-btn-delete" onClick={onConfirm}>Löschen</button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
