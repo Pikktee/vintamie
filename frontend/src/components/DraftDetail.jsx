@@ -108,6 +108,57 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Swipe gesture detection refs & handlers
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.targetTouches[0].clientX;
+    touchStartY.current = e.targetTouches[0].clientY;
+  };
+
+  const handleTouchEnd = (e) => {
+    if (selectedModalImage) return; // Don't swipe when viewing image modal
+
+    // Prevent swipe triggers on form inputs, textareas, dropdowns, buttons, links, or image thumbnails
+    const target = e.target;
+    if (
+      target.closest('input') ||
+      target.closest('textarea') ||
+      target.closest('select') ||
+      target.closest('button') ||
+      target.closest('a') ||
+      target.closest('.thumbnail-grid-item') ||
+      target.closest('.price-comparison-link')
+    ) {
+      return;
+    }
+
+    const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
+
+    const diffX = touchStartX.current - endX;
+    const diffY = touchStartY.current - endY;
+
+    // We only detect horizontal swipe
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+      const minSwipeDistance = 70; // minimum distance in px for intentional swipe
+      if (Math.abs(diffX) > minSwipeDistance) {
+        if (diffX > 0) {
+          // Swipe Left (finger goes right to left) -> next tab ('publish')
+          if (activeTab === 'edit') {
+            setActiveTab('publish');
+          }
+        } else {
+          // Swipe Right (finger goes left to right) -> previous tab ('edit')
+          if (activeTab === 'publish') {
+            setActiveTab('edit');
+          }
+        }
+      }
+    }
+  };
+
   const copyToClipboard = (text, fieldName) => {
     navigator.clipboard.writeText(text);
     setCopiedField(fieldName);
@@ -596,7 +647,11 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
   };
 
   return (
-    <div className="fade-in">
+    <div 
+      className="fade-in"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Sticky Tinder-style Header */}
       <div className="detail-sticky-header">
         <div className="detail-header-inner">
