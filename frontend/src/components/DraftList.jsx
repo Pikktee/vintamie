@@ -115,15 +115,18 @@ export default function DraftList({ drafts, onSelectDraft, onDeleteDraft }) {
 }
 
 function DraftListItem({ draft, onSelect, onDelete }) {
-  const [startX, setStartX] = useState(0);
-  const [startY, setStartY] = useState(0);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
   const itemRef = useRef(null);
   const cardRef = useRef(null);
+  
+  const currentRestOffset = useRef(0);
+  const startX = useRef(0);
+  const startY = useRef(0);
   const hasSwiped = useRef(false);
+  const isVerticalScroll = useRef(false);
 
   const formatDate = (dateString) => {
     const d = new Date(dateString);
@@ -136,24 +139,28 @@ function DraftListItem({ draft, onSelect, onDelete }) {
 
   const handleTouchStart = (e) => {
     if (isDeleting) return;
-    setStartX(e.touches[0].clientX);
-    setStartY(e.touches[0].clientY);
-    setSwipeOffset(0);
+    startX.current = e.touches[0].clientX;
+    startY.current = e.touches[0].clientY;
     setIsSwiping(true);
     hasSwiped.current = false;
+    isVerticalScroll.current = false;
   };
 
   const handleTouchMove = (e) => {
     if (!isSwiping || isDeleting) return;
     const currentTouchX = e.touches[0].clientX;
     const currentTouchY = e.touches[0].clientY;
-    const diffX = currentTouchX - startX;
-    const diffY = currentTouchY - startY;
+    const diffX = currentTouchX - startX.current;
+    const diffY = currentTouchY - startY.current;
 
-    // Lock to vertical scroll if vertical motion is dominant
-    if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 10) {
+    // If vertical scroll took over, ignore horizontal swipe
+    if (isVerticalScroll.current) return;
+
+    // Lock to vertical scroll if vertical motion is dominant at start
+    if (!hasSwiped.current && Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 10) {
+      isVerticalScroll.current = true;
       setIsSwiping(false);
-      setSwipeOffset(0);
+      setSwipeOffset(currentRestOffset.current);
       return;
     }
 
@@ -162,36 +169,65 @@ function DraftListItem({ draft, onSelect, onDelete }) {
       if (e.cancelable) {
         e.preventDefault();
       }
-    }
-
-    if (Math.abs(diffX) > 10) {
       hasSwiped.current = true;
     }
 
-    // Only allow swiping to the left (negative offset)
-    if (diffX < 0) {
-      setSwipeOffset(diffX);
-    } else {
-      setSwipeOffset(0);
+    // Calculate new offset based on resting position
+    let newOffset = currentRestOffset.current + diffX;
+
+    // Don't allow swiping right past 0
+    if (newOffset > 0) {
+      newOffset = 0;
     }
+
+    // Capping left swipe to prevent stretching over full width:
+    // Max swipe is -120px. Dragging past it has rubber-band resistance
+    if (newOffset < -120) {
+      const excess = newOffset + 120;
+      newOffset = -120 + excess * 0.35; // Apply damping resistance
+    }
+
+    setSwipeOffset(newOffset);
   };
 
   const handleTouchEnd = () => {
     if (!isSwiping || isDeleting) return;
     setIsSwiping(false);
     
-    const threshold = -80; // Swipe 80px left to trigger deletion
-    if (swipeOffset < threshold) {
-      triggerDelete();
+    if (isVerticalScroll.current) return;
+
+    const threshold = -40; // Swipe 40px left to trigger snap/reveal
+    const actionWidth = -80; // Snapped open resting offset (80px wide button)
+
+    if (currentRestOffset.current === 0) {
+      // Swiping left from closed state
+      if (swipeOffset < threshold) {
+        // Snap open
+        setSwipeOffset(actionWidth);
+        currentRestOffset.current = actionWidth;
+      } else {
+        // Snap closed
+        setSwipeOffset(0);
+        currentRestOffset.current = 0;
+      }
     } else {
-      setSwipeOffset(0);
+      // Swiping right from opened state
+      // If they swipe back past -40px, snap closed
+      if (swipeOffset > -40) {
+        setSwipeOffset(0);
+        currentRestOffset.current = 0;
+      } else {
+        // Snap open
+        setSwipeOffset(actionWidth);
+        currentRestOffset.current = actionWidth;
+      }
     }
   };
 
   const handleTouchCancel = () => {
     if (isDeleting) return;
     setIsSwiping(false);
-    setSwipeOffset(0);
+    setSwipeOffset(currentRestOffset.current);
   };
 
   const triggerDelete = () => {
@@ -225,11 +261,23 @@ function DraftListItem({ draft, onSelect, onDelete }) {
     e.stopPropagation();
     if (confirm('Möchtest du dieses Angebot wirklich löschen?')) {
       triggerDelete();
+    } else {
+      // Close swipe on cancel
+      setSwipeOffset(0);
+      currentRestOffset.current = 0;
     }
   };
 
   const handleClick = (e) => {
     if (isDeleting) return;
+    if (currentRestOffset.current !== 0) {
+      // Card is swiped open: tap to close it
+      setSwipeOffset(0);
+      currentRestOffset.current = 0;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (hasSwiped.current) {
       e.preventDefault();
       e.stopPropagation();
