@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, Copy, Check, ExternalLink, Smartphone, Monitor, RefreshCw, AlertCircle, Trash2, Plus, Sparkles, Upload, FileText, Share2, Camera, TrendingUp } from 'lucide-react';
 import { updateDraft, getImageUrl, getAuthToken, uploadDraftImages, deleteDraftImage, regenerateDraftField } from '../utils/api';
@@ -108,21 +108,59 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Ordered list of tabs for swipe navigation
+  const TAB_ORDER = ['edit', 'publish'];
+
   // Swipe gesture detection refs & handlers
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
+  const swipeBlocked = useRef(false); // true when the gesture started on an interactive element
+  const isDragging = useRef(false);   // true once a horizontal drag is recognized
+  const dragTarget = useRef(null);    // tab the finger is currently dragging toward
+
+  // Refs to the tab buttons so we can measure the underline geometry
+  const tabsRowRef = useRef(null);
+  const tabRefs = useRef({});
+
+  // Sliding underline indicator: { left, width } relative to the tabs row, plus
+  // whether the movement should animate (true) or follow the finger 1:1 (false).
+  const [indicator, setIndicator] = useState({ left: 0, width: 0, animate: false });
+
+  // Measure a tab's position/width relative to the tabs row
+  const measureTab = (tabKey) => {
+    const row = tabsRowRef.current;
+    const el = tabRefs.current[tabKey];
+    if (!row || !el) return null;
+    const rowRect = row.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    return { left: elRect.left - rowRect.left, width: elRect.width };
+  };
+
+  // Snap the indicator under the active tab (animated) whenever it changes / layout shifts
+  useLayoutEffect(() => {
+    const geo = measureTab(activeTab);
+    if (geo) setIndicator({ ...geo, animate: true });
+    const handleResize = () => {
+      const g = measureTab(activeTab);
+      if (g) setIndicator({ ...g, animate: false });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [activeTab, isMobile]);
+
+  // Distance (px) the finger must travel for a full tab transition
+  const SWIPE_FULL_DISTANCE = 140;
 
   const handleTouchStart = (e) => {
     touchStartX.current = e.targetTouches[0].clientX;
     touchStartY.current = e.targetTouches[0].clientY;
-  };
+    isDragging.current = false;
+    dragTarget.current = null;
 
-  const handleTouchEnd = (e) => {
-    if (selectedModalImage) return; // Don't swipe when viewing image modal
-
-    // Prevent swipe triggers on form inputs, textareas, dropdowns, buttons, links, or image thumbnails
+    // Decide up-front whether this gesture should be ignored (interactive element or modal)
     const target = e.target;
-    if (
+    swipeBlocked.current = Boolean(
+      selectedModalImage ||
       target.closest('input') ||
       target.closest('textarea') ||
       target.closest('select') ||
@@ -130,32 +168,70 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
       target.closest('a') ||
       target.closest('.thumbnail-grid-item') ||
       target.closest('.price-comparison-link')
-    ) {
+    );
+  };
+
+  const handleTouchMove = (e) => {
+    if (swipeBlocked.current) return;
+
+    const currentX = e.targetTouches[0].clientX;
+    const currentY = e.targetTouches[0].clientY;
+    const diffX = currentX - touchStartX.current; // >0 finger moves right, <0 moves left
+    const diffY = currentY - touchStartY.current;
+
+    // Only start a horizontal drag once movement is clearly horizontal
+    if (!isDragging.current) {
+      if (Math.abs(diffX) < 8 || Math.abs(diffX) <= Math.abs(diffY)) return;
+      isDragging.current = true;
+    }
+
+    // Determine which tab we are heading toward based on direction
+    const currentIndex = TAB_ORDER.indexOf(activeTab);
+    const targetIndex = diffX < 0 ? currentIndex + 1 : currentIndex - 1;
+    const targetKey = TAB_ORDER[targetIndex];
+
+    const activeGeo = measureTab(activeTab);
+    if (!activeGeo) return;
+
+    // No neighbouring tab in that direction -> keep the underline pinned (edge resistance)
+    if (!targetKey) {
+      dragTarget.current = null;
+      setIndicator({ ...activeGeo, animate: false });
       return;
     }
 
+    const targetGeo = measureTab(targetKey);
+    if (!targetGeo) return;
+
+    dragTarget.current = targetKey;
+
+    // Progress 0..1 of the gesture, interpolating the underline between both tabs
+    const progress = Math.min(Math.abs(diffX) / SWIPE_FULL_DISTANCE, 1);
+    setIndicator({
+      left: activeGeo.left + (targetGeo.left - activeGeo.left) * progress,
+      width: activeGeo.width + (targetGeo.width - activeGeo.width) * progress,
+      animate: false,
+    });
+  };
+
+  const handleTouchEnd = (e) => {
+    if (swipeBlocked.current || !isDragging.current) {
+      isDragging.current = false;
+      return;
+    }
+    isDragging.current = false;
+
     const endX = e.changedTouches[0].clientX;
-    const endY = e.changedTouches[0].clientY;
+    const diffX = endX - touchStartX.current;
+    const target = dragTarget.current;
+    dragTarget.current = null;
 
-    const diffX = touchStartX.current - endX;
-    const diffY = touchStartY.current - endY;
-
-    // We only detect horizontal swipe
-    if (Math.abs(diffX) > Math.abs(diffY)) {
-      const minSwipeDistance = 70; // minimum distance in px for intentional swipe
-      if (Math.abs(diffX) > minSwipeDistance) {
-        if (diffX > 0) {
-          // Swipe Left (finger goes right to left) -> next tab ('publish')
-          if (activeTab === 'edit') {
-            setActiveTab('publish');
-          }
-        } else {
-          // Swipe Right (finger goes left to right) -> previous tab ('edit')
-          if (activeTab === 'publish') {
-            setActiveTab('edit');
-          }
-        }
-      }
+    // Commit the switch if dragged far enough; otherwise snap back to the active tab
+    if (target && Math.abs(diffX) > SWIPE_FULL_DISTANCE * 0.4) {
+      setActiveTab(target); // useLayoutEffect animates the underline to its final spot
+    } else {
+      const geo = measureTab(activeTab);
+      if (geo) setIndicator({ ...geo, animate: true });
     }
   };
 
@@ -647,9 +723,10 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
   };
 
   return (
-    <div 
+    <div
       className="fade-in"
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
       {/* Sticky Tinder-style Header */}
@@ -663,21 +740,33 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
               Fertig
             </button>
           </div>
-          <div className="detail-tabs-row">
-            <button 
+          <div className="detail-tabs-row" ref={tabsRowRef}>
+            <button
+              ref={(el) => (tabRefs.current.edit = el)}
               className={`detail-tab ${activeTab === 'edit' ? 'active' : ''}`}
               onClick={() => setActiveTab('edit')}
             >
               <FileText size={16} />
               <span>Übersicht</span>
             </button>
-            <button 
+            <button
+              ref={(el) => (tabRefs.current.publish = el)}
               className={`detail-tab ${activeTab === 'publish' ? 'active' : ''}`}
               onClick={() => setActiveTab('publish')}
             >
               <Share2 size={16} />
               <span>Veröffentlichen</span>
             </button>
+            <span
+              className="detail-tab-indicator"
+              style={{
+                transform: `translateX(${indicator.left}px)`,
+                width: `${indicator.width}px`,
+                transition: indicator.animate
+                  ? 'transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), width 0.3s cubic-bezier(0.22, 1, 0.36, 1)'
+                  : 'none',
+              }}
+            />
           </div>
         </div>
       </div>
