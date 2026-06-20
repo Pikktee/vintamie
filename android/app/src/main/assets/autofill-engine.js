@@ -1,0 +1,663 @@
+/*
+ * Vintamie Autofill Engine — shared single source of truth
+ * ---------------------------------------------------------
+ * Pure DOM JavaScript (no chrome.* APIs, no platform globals) so the exact same
+ * file can run in two very different hosts:
+ *
+ *   1. Chrome/Firefox extension  -> loaded as a content script before content.js.
+ *   2. Android WebView shell      -> bundled as an asset and injected via
+ *                                    WebView.evaluateJavascript().
+ *
+ * The host is responsible for authentication, fetching the draft JSON and (for the
+ * extension) handing over the resolved image URLs / backend base url. The engine
+ * only touches the DOM of the target page (Vinted / Kleinanzeigen).
+ *
+ * Public API:
+ *   window.__vintamie.autofill(draft, options) -> Promise<result>
+ *
+ *   options = {
+ *     platform:   "vinted" | "kleinanzeigen" | null  (null = auto-detect)
+ *     autoSubmit: boolean   (default false -> user reviews & clicks publish himself)
+ *     userZip:    string    (Kleinanzeigen postcode, optional)
+ *     userCity:   string    (optional)
+ *     backendUrl: string    (used to resolve relative image paths, extension only)
+ *     imageMode:  "datatransfer" | "native"  (datatransfer = engine fetches & injects
+ *                  the files itself; native = engine only clicks the <input type=file>
+ *                  so the Android host can supply the photo via onShowFileChooser)
+ *     showOverlay: boolean  (default true -> visible "what was filled" panel)
+ *   }
+ *
+ *   result = { platform, phase, filled:[], manual:[], photos:Number, submitted:Bool }
+ */
+(function () {
+  "use strict";
+
+  // Re-injection guard. On Android the script may be injected on every page load,
+  // and in the extension it is a persistent content script — never redefine.
+  if (window.__vintamie && window.__vintamie.__loaded) return;
+
+  var VERSION = "1.0.0";
+
+  // ----------------------------------------------------------------------------
+  // Low level helpers
+  // ----------------------------------------------------------------------------
+
+  function norm(s) {
+    return (s == null ? "" : String(s))
+      .toLowerCase()
+      .replace(/[^a-z0-9äöüß]+/g, " ")
+      .trim();
+  }
+
+  function sleep(ms) {
+    return new Promise(function (r) { setTimeout(r, ms); });
+  }
+
+  function isInteractable(el) {
+    if (!el) return false;
+    if (el.disabled) return false;
+    if (el.type === "hidden") return false;
+    if (el.getAttribute && el.getAttribute("aria-hidden") === "true") return false;
+    var style = window.getComputedStyle(el);
+    if (!style) return true;
+    if (style.display === "none" || style.visibility === "hidden") return false;
+    return true;
+  }
+
+  /*
+   * React/Vue store the "real" value in their own state and overwrite the input's
+   * value setter. A plain `el.value = x` updates the visible DOM node but is wiped
+   * on the next render / lost on submit. We must call the *native* prototype setter
+   * and then dispatch a bubbling input event so the framework picks the change up.
+   * This is THE fix that makes Vinted (a React SPA) actually work.
+   */
+  function setNativeValue(el, value) {
+    var ownDesc = Object.getOwnPropertyDescriptor(el, "value");
+    var proto = Object.getPrototypeOf(el);
+    var protoDesc = Object.getOwnPropertyDescriptor(proto, "value");
+    var ownSetter = ownDesc && ownDesc.set;
+    var protoSetter = protoDesc && protoDesc.set;
+
+    if (protoSetter && ownSetter !== protoSetter) {
+      protoSetter.call(el, value);
+    } else if (ownSetter) {
+      ownSetter.call(el, value);
+    } else {
+      el.value = value;
+    }
+  }
+
+  function fillField(el, value) {
+    if (!el) return false;
+    if (value === undefined || value === null || value === "") return false;
+    try { el.focus(); } catch (e) {}
+    setNativeValue(el, String(value));
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    try { el.setAttribute("data-vintamie-filled", "1"); } catch (e) {}
+    return true;
+  }
+
+  // ----------------------------------------------------------------------------
+  // Field discovery — try multiple strategies, prefer interactable elements
+  // ----------------------------------------------------------------------------
+
+  function pickFromSelector(selector) {
+    var els;
+    try { els = document.querySelectorAll(selector); } catch (e) { return null; }
+    for (var i = 0; i < els.length; i++) {
+      if (isInteractable(els[i])) return els[i];
+    }
+    return null;
+  }
+
+  function firstBySelectors(selectors) {
+    for (var i = 0; i < selectors.length; i++) {
+      var el = pickFromSelector(selectors[i]);
+      if (el) return el;
+    }
+    return null;
+  }
+
+  // Collect label-ish text describing a control (label[for], wrapping label/legend,
+  // aria-label, name, placeholder). Used both for fallback matching and attributes.
+  function labelTextFor(el) {
+    var txt = "";
+    if (el.id) {
+      var lab = document.querySelector("label[for='" + el.id + "']");
+      if (lab) txt += " " + lab.textContent;
+    }
+    txt += " " + (el.getAttribute("aria-label") || "");
+    txt += " " + (el.getAttribute("name") || "");
+    txt += " " + (el.getAttribute("placeholder") || "");
+    var node = el.parentElement, depth = 0;
+    while (node && depth < 4) {
+      if (node.tagName === "LABEL" || node.tagName === "LEGEND") txt += " " + node.textContent;
+      var inner = node.querySelector ? node.querySelector("label, legend") : null;
+      if (inner) txt += " " + inner.textContent;
+      node = node.parentElement; depth++;
+    }
+    return norm(txt);
+  }
+
+  // Fallback: scan all controls of the given tags and match their label text.
+  function findByLabel(needles, tags) {
+    var sel = tags.join(",");
+    var fields = document.querySelectorAll(sel);
+    for (var i = 0; i < fields.length; i++) {
+      var el = fields[i];
+      if (!isInteractable(el)) continue;
+      var txt = labelTextFor(el);
+      for (var j = 0; j < needles.length; j++) {
+        if (txt.indexOf(needles[j]) !== -1) return el;
+      }
+    }
+    return null;
+  }
+
+  function findField(spec) {
+    return firstBySelectors(spec.selectors) ||
+           (spec.labels ? findByLabel(spec.labels, spec.tags || ["input", "textarea"]) : null);
+  }
+
+  // ----------------------------------------------------------------------------
+  // Platform / phase detection
+  // ----------------------------------------------------------------------------
+
+  function detectPlatform() {
+    var h = window.location.hostname || "";
+    if (h.indexOf("kleinanzeigen") !== -1) return "kleinanzeigen";
+    if (h.indexOf("vinted") !== -1) return "vinted";
+    return null;
+  }
+
+  // Kleinanzeigen is a two-step flow: step 1 picks a category via a keyword
+  // suggestion box, step 2 is the real form. Vinted has a single form page.
+  function detectPhase(platform) {
+    var p = window.location.pathname || "";
+    if (platform === "kleinanzeigen") {
+      if (p.indexOf("p-anzeige-aufgeben-schritt2") !== -1) return "form";
+      if (p.indexOf("p-anzeige-aufgeben") !== -1) return "category";
+      return "form";
+    }
+    return "form";
+  }
+
+  // ----------------------------------------------------------------------------
+  // Field maps per platform. Order matters: most reliable selector first, then
+  // looser fallbacks, then label-text matching.
+  // ----------------------------------------------------------------------------
+
+  var FIELD_MAP = {
+    vinted: {
+      title: {
+        selectors: ["input[name='title']", "input[id*='title']", "input[data-testid*='title']", "input[placeholder*='itel']"],
+        labels: ["titel", "title"], tags: ["input"]
+      },
+      description: {
+        selectors: ["textarea[name='description']", "textarea[id*='desc']", "textarea[data-testid*='desc']", "textarea[placeholder*='eschreib']"],
+        labels: ["beschreib", "description"], tags: ["textarea"]
+      },
+      price: {
+        selectors: ["input[name='price']", "input[id*='price']", "input[data-testid*='price']", "input[placeholder*='0,00']"],
+        labels: ["preis", "price"], tags: ["input"]
+      }
+    },
+    kleinanzeigen: {
+      title: {
+        selectors: ["#postad-title", "input[name='title']", "input[id*='title']"],
+        labels: ["titel", "überschrift", "uberschrift"], tags: ["input"]
+      },
+      description: {
+        // Kleinanzeigen historically uses the (correct, not a typo) id #pstad-descrptn.
+        selectors: ["#pstad-descrptn", "#postad-description", "textarea[name='description']", "textarea[id*='descr']"],
+        labels: ["beschreib"], tags: ["textarea"]
+      },
+      price: {
+        selectors: ["#pstad-price", "#postad-price", "input[name='price']", "input[id*='price']"],
+        labels: ["preis"], tags: ["input"]
+      }
+    }
+  };
+
+  // ----------------------------------------------------------------------------
+  // Images
+  // ----------------------------------------------------------------------------
+
+  function resolveImageUrls(draft, backendUrl) {
+    var paths = [];
+    if (draft.image_paths) {
+      var raw = draft.image_paths;
+      if (typeof raw === "string") {
+        try { raw = JSON.parse(raw); }
+        catch (e) {
+          // Backend may have stored a Python list repr with single quotes.
+          try { raw = JSON.parse(raw.replace(/'/g, '"')); } catch (e2) { raw = null; }
+        }
+      }
+      if (Array.isArray(raw)) paths = raw.filter(Boolean);
+    }
+    if (paths.length === 0 && draft.image_path) paths = [draft.image_path];
+    var base = backendUrl || "";
+    return paths.map(function (p) {
+      return /^https?:\/\//.test(p) ? p : base + p;
+    });
+  }
+
+  function findFileInput() {
+    var inputs = document.querySelectorAll("input[type='file']");
+    for (var i = 0; i < inputs.length; i++) {
+      var accept = (inputs[i].accept || "").toLowerCase();
+      if (accept === "" || accept.indexOf("image") !== -1) return inputs[i];
+    }
+    return inputs[0] || null;
+  }
+
+  // Extension mode: fetch each photo and inject all of them into the file input
+  // via a DataTransfer so the host page's normal upload handler runs.
+  async function uploadPhotosDataTransfer(urls) {
+    var input = findFileInput();
+    if (!input || urls.length === 0) return 0;
+    var dt = new DataTransfer();
+    var count = 0;
+    for (var i = 0; i < urls.length; i++) {
+      try {
+        var resp = await fetch(urls[i]);
+        if (!resp.ok) continue;
+        var blob = await resp.blob();
+        var type = blob.type || "image/jpeg";
+        var ext = (type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+        var file = new File([blob], "vintamie_" + (i + 1) + "." + ext, { type: type });
+        dt.items.add(file);
+        count++;
+      } catch (e) { /* skip individual image failures */ }
+    }
+    if (count === 0) return 0;
+    try {
+      input.files = dt.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    } catch (e) { return 0; }
+    return count;
+  }
+
+  // Native mode (Android): just trigger the file chooser; the WebView host
+  // intercepts onShowFileChooser and supplies the prepared photo URI.
+  function triggerNativeFileChooser() {
+    var input = findFileInput();
+    if (input) { try { input.click(); return 1; } catch (e) {} }
+    return 0;
+  }
+
+  // ----------------------------------------------------------------------------
+  // Kleinanzeigen category picker (step 1)
+  // ----------------------------------------------------------------------------
+
+  function findCategoryKeywordInput() {
+    var el = document.querySelector("#pstad-keyword") ||
+             document.querySelector("#postad-keyword") ||
+             document.querySelector("input[name='keyword']") ||
+             document.querySelector("input[type='search']");
+    if (el && isInteractable(el)) return el;
+    var inputs = document.querySelectorAll("input[type='text'], input:not([type])");
+    for (var i = 0; i < inputs.length; i++) {
+      var p = (inputs[i].placeholder || "").toLowerCase();
+      if (p.indexOf("verkauf") !== -1 || p.indexOf("was ") !== -1 || p.indexOf("suchst") !== -1 ||
+          p.indexOf("bieten") !== -1 || p.indexOf("artikel") !== -1) {
+        if (isInteractable(inputs[i])) return inputs[i];
+      }
+    }
+    return null;
+  }
+
+  async function autoSelectCategory(draft) {
+    var keyword = (draft.category && draft.category.trim()) ? draft.category.trim()
+                : (draft.title || "").trim();
+    if (!keyword) return false;
+
+    var input = null;
+    for (var t = 0; t < 20 && !input; t++) {
+      input = findCategoryKeywordInput();
+      if (!input) await sleep(400);
+    }
+    if (!input) return false;
+
+    fillField(input, keyword);
+    input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
+
+    var suggestionSelectors = [
+      "#pstad-keyword-suggestions li", "#postad-keyword-suggestions li",
+      "ul[role='listbox'] li[role='option']", "ul[role='listbox'] li",
+      "[class*='uggestion'] li", "[class*='uggestion'] a",
+      "li[role='option']", "a[href*='p-kategorie']"
+    ];
+    for (var k = 0; k < 8; k++) {
+      await sleep(800);
+      var item = null;
+      for (var s = 0; s < suggestionSelectors.length; s++) {
+        var found = document.querySelector(suggestionSelectors[s]);
+        if (found) { item = found; break; }
+      }
+      if (item) { item.click(); return true; }
+    }
+    // Could not auto-pick; the field stays prefilled for a single manual tap.
+    return false;
+  }
+
+  // ----------------------------------------------------------------------------
+  // Kleinanzeigen category-specific attributes ("Zusatzfelder")
+  // ----------------------------------------------------------------------------
+
+  function parseAttributes(draft) {
+    var a = draft.attributes;
+    if (!a) return {};
+    if (typeof a === "string") {
+      try { a = JSON.parse(a); }
+      catch (e) { try { a = JSON.parse(a.replace(/'/g, '"')); } catch (e2) { return {}; } }
+    }
+    return (a && typeof a === "object") ? a : {};
+  }
+
+  function pickOption(sel, value) {
+    var nv = norm(value);
+    if (!nv) return null;
+    var i;
+    for (i = 0; i < sel.options.length; i++) {
+      if (norm(sel.options[i].textContent) === nv) return sel.options[i];
+    }
+    for (i = 0; i < sel.options.length; i++) {
+      var ot = norm(sel.options[i].textContent);
+      if (ot && sel.options[i].value && (ot.indexOf(nv) !== -1 || nv.indexOf(ot) !== -1)) return sel.options[i];
+    }
+    return null;
+  }
+
+  function fillAttributes(draft) {
+    var attrs = parseAttributes(draft);
+    var keys = Object.keys(attrs);
+    if (keys.length === 0) return [];
+
+    var filledLabels = [];
+    var selects = Array.prototype.slice.call(document.querySelectorAll("select"));
+    var texts = Array.prototype.slice.call(document.querySelectorAll("input[type='text'], input:not([type])"));
+
+    keys.forEach(function (key) {
+      var label = norm(key);
+      var value = attrs[key] == null ? "" : String(attrs[key]);
+      if (!label || !value) return;
+
+      // Shipping is usually a checkbox/radio on Kleinanzeigen, not a select.
+      if (label.indexOf("versand") !== -1) {
+        var wantsShip = norm(value).indexOf("moglich") !== -1 || norm(value).indexOf("versand") !== -1;
+        var boxes = document.querySelectorAll("input[type='checkbox'], input[type='radio']");
+        var toggled = false;
+        for (var b = 0; b < boxes.length; b++) {
+          if (labelTextFor(boxes[b]).indexOf("versand") !== -1) {
+            if (boxes[b].checked !== wantsShip) boxes[b].click();
+            toggled = true;
+          }
+        }
+        if (toggled) { filledLabels.push(key); return; }
+      }
+
+      // Try <select> dropdowns first.
+      for (var i = 0; i < selects.length; i++) {
+        if (selects[i].__vintamieKnown) continue;
+        if (labelTextFor(selects[i]).indexOf(label) === -1) continue;
+        var opt = pickOption(selects[i], value);
+        if (opt) {
+          selects[i].value = opt.value;
+          selects[i].__vintamieKnown = true;
+          selects[i].dispatchEvent(new Event("change", { bubbles: true }));
+          filledLabels.push(key);
+          return;
+        }
+      }
+      // Then free-text inputs.
+      for (var t = 0; t < texts.length; t++) {
+        if (texts[t].__vintamieKnown) continue;
+        if (labelTextFor(texts[t]).indexOf(label) === -1) continue;
+        fillField(texts[t], value);
+        texts[t].__vintamieKnown = true;
+        filledLabels.push(key);
+        return;
+      }
+    });
+    return filledLabels;
+  }
+
+  function setKleinanzeigenFixedPrice() {
+    var radios = document.querySelectorAll("input[name='priceType']");
+    for (var i = 0; i < radios.length; i++) {
+      var r = radios[i];
+      if (r.value === "FIXED" || (r.id && (r.id.indexOf("fixed") !== -1 || r.id.indexOf("fest") !== -1))) {
+        r.checked = true;
+        r.dispatchEvent(new Event("change", { bubbles: true }));
+        return;
+      }
+    }
+  }
+
+  // ----------------------------------------------------------------------------
+  // Submit handling
+  // ----------------------------------------------------------------------------
+
+  function findButtonByText(needles) {
+    var btns = document.querySelectorAll("button, input[type='submit'], a[role='button']");
+    for (var i = 0; i < btns.length; i++) {
+      var t = norm(btns[i].innerText || btns[i].value || "");
+      for (var j = 0; j < needles.length; j++) {
+        if (t.indexOf(needles[j]) !== -1) return btns[i];
+      }
+    }
+    return null;
+  }
+
+  function findSubmitButton(platform) {
+    if (platform === "vinted") {
+      return document.querySelector("button[data-testid*='submit']") ||
+             findButtonByText(["hochladen", "einstellen", "veröffentlichen", "veroffentlichen"]) ||
+             document.querySelector("button[type='submit']");
+    }
+    return document.querySelector("#pstad-submit") ||
+           findButtonByText(["anzeige aufgeben", "veröffentlichen", "veroffentlichen", "einstellen"]) ||
+           document.querySelector("button[type='submit']");
+  }
+
+  function highlightButton(btn) {
+    if (!btn) return;
+    try {
+      btn.scrollIntoView({ behavior: "smooth", block: "center" });
+      btn.style.transition = "box-shadow .4s ease";
+      btn.style.boxShadow = "0 0 0 4px rgba(9,176,183,.65)";
+      btn.style.borderRadius = btn.style.borderRadius || "8px";
+    } catch (e) {}
+  }
+
+  async function trySubmit(platform) {
+    for (var i = 0; i < 6; i++) {
+      var btn = findSubmitButton(platform);
+      if (btn) { try { btn.click(); return true; } catch (e) {} }
+      await sleep(1200);
+    }
+    return false;
+  }
+
+  // ----------------------------------------------------------------------------
+  // Visible feedback overlay — also serves as the "debug" view the user can read
+  // to see exactly which fields were detected and which need a manual touch.
+  // ----------------------------------------------------------------------------
+
+  function showOverlay(result, autoSubmit) {
+    try {
+      var existing = document.getElementById("vintamie-overlay");
+      if (existing) existing.remove();
+
+      var box = document.createElement("div");
+      box.id = "vintamie-overlay";
+      box.style.cssText = [
+        "position:fixed", "z-index:2147483647", "right:16px", "bottom:16px",
+        "width:300px", "max-width:calc(100vw - 32px)", "background:#0e121a",
+        "color:#f8fafc", "border:1px solid rgba(9,176,183,.35)", "border-radius:14px",
+        "box-shadow:0 12px 40px rgba(0,0,0,.55)", "padding:14px 16px",
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
+        "font-size:13px", "line-height:1.45", "box-sizing:border-box"
+      ].join(";");
+
+      function row(icon, label, color) {
+        return '<div style="display:flex;gap:8px;align-items:flex-start;margin-top:5px;">' +
+               '<span style="flex-shrink:0;color:' + color + ';">' + icon + '</span>' +
+               '<span style="color:#cbd5e1;">' + label + '</span></div>';
+      }
+
+      var filledHtml = result.filled.map(function (f) { return row("✓", f, "#34d399"); }).join("");
+      var manualHtml = result.manual.map(function (f) { return row("•", f + " — bitte selbst wählen", "#f59e0b"); }).join("");
+      var photoHtml = result.photos > 0
+        ? row("✓", result.photos + (result.photos === 1 ? " Foto übertragen" : " Fotos übertragen"), "#34d399")
+        : row("•", "Fotos — bitte selbst hinzufügen", "#f59e0b");
+
+      var footer;
+      if (result.phase === "category") {
+        footer = '<div style="margin-top:11px;color:#94a3b8;font-size:12px;">Kategorie wird gewählt …</div>';
+      } else if (autoSubmit) {
+        footer = '<div style="margin-top:11px;color:#94a3b8;font-size:12px;">Wird automatisch veröffentlicht …</div>';
+      } else {
+        footer = '<div style="margin-top:11px;color:#e2e8f0;font-size:12px;background:rgba(9,176,183,.12);border:1px solid rgba(9,176,183,.3);border-radius:8px;padding:8px 10px;">Prüfe die Angaben und klicke unten auf <b>Veröffentlichen</b>.</div>';
+      }
+
+      box.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
+          '<span style="font-weight:700;background:linear-gradient(135deg,#09b0b7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">✨ Vintamie</span>' +
+          '<span id="vintamie-overlay-close" style="cursor:pointer;color:#94a3b8;font-size:18px;line-height:1;">&times;</span>' +
+        '</div>' +
+        filledHtml + photoHtml + manualHtml + footer;
+
+      document.body.appendChild(box);
+      var close = document.getElementById("vintamie-overlay-close");
+      if (close) close.addEventListener("click", function () { box.remove(); });
+      if (result.phase !== "category" && !autoSubmit) {
+        setTimeout(function () { if (box && box.parentNode) box.style.opacity = "0.96"; }, 50);
+      }
+    } catch (e) { /* overlay is best-effort, never block autofill */ }
+  }
+
+  // ----------------------------------------------------------------------------
+  // Core fill (Vinted form + Kleinanzeigen step 2 form)
+  // ----------------------------------------------------------------------------
+
+  async function fillForm(draft, options, platform) {
+    var map = FIELD_MAP[platform] || FIELD_MAP.vinted;
+    var filled = [];
+    var manual = [];
+
+    // Poll for the title field — both forms render asynchronously.
+    var titleEl = null;
+    for (var i = 0; i < 24 && !titleEl; i++) {
+      titleEl = findField(map.title);
+      if (!titleEl) await sleep(500);
+    }
+
+    var descEl = findField(map.description);
+    var priceEl = findField(map.price);
+
+    if (fillField(titleEl, draft.title)) filled.push("Titel");
+    if (fillField(descEl, draft.description)) filled.push("Beschreibung");
+    if (draft.price !== undefined && draft.price !== null) {
+      if (fillField(priceEl, String(Math.round(draft.price)))) filled.push("Preis");
+    }
+    if (titleEl) titleEl.__vintamieKnown = true;
+    if (descEl) descEl.__vintamieKnown = true;
+    if (priceEl) priceEl.__vintamieKnown = true;
+
+    if (platform === "kleinanzeigen") {
+      setKleinanzeigenFixedPrice();
+      if (options.userZip) {
+        var zipEl = firstBySelectors([
+          "#postad-postcode", "input[name='postcode']", "input[id*='postcode']", "input[placeholder*='PLZ']"
+        ]);
+        if (zipEl) {
+          fillField(zipEl, options.userZip);
+          zipEl.__vintamieKnown = true;
+          zipEl.dispatchEvent(new Event("blur", { bubbles: true }));
+          filled.push("PLZ");
+        }
+      }
+      // Attributes may render slightly after the core fields — retry a few times.
+      var attrFilled = fillAttributes(draft);
+      await sleep(1500);
+      attrFilled = attrFilled.concat(fillAttributes(draft));
+      await sleep(2000);
+      attrFilled = attrFilled.concat(fillAttributes(draft));
+      // De-dup attribute labels for the report.
+      attrFilled.filter(function (v, idx, arr) { return arr.indexOf(v) === idx; })
+                .forEach(function (lbl) { filled.push(lbl); });
+    }
+
+    // Vinted's category / brand / size / condition are modal pickers we cannot
+    // reliably drive — surface them as manual to-dos instead of failing silently.
+    if (platform === "vinted") {
+      manual.push("Kategorie, Marke, Größe, Zustand");
+    } else if (!draft.category) {
+      manual.push("Kategorie");
+    }
+
+    // Photos
+    var photos = 0;
+    if (options.imageMode === "native") {
+      photos = triggerNativeFileChooser();
+    } else {
+      var urls = resolveImageUrls(draft, options.backendUrl);
+      photos = await uploadPhotosDataTransfer(urls);
+    }
+
+    return { filled: filled, manual: manual, photos: photos };
+  }
+
+  // ----------------------------------------------------------------------------
+  // Public entry point
+  // ----------------------------------------------------------------------------
+
+  async function autofill(draft, options) {
+    options = options || {};
+    if (typeof draft === "string") {
+      try { draft = JSON.parse(draft); } catch (e) { draft = {}; }
+    }
+    var platform = options.platform || detectPlatform();
+    var phase = detectPhase(platform);
+    var autoSubmit = !!options.autoSubmit;
+    var showUi = options.showOverlay !== false;
+
+    // Kleinanzeigen step 1: pick the category, then let the step-2 reload fill.
+    if (platform === "kleinanzeigen" && phase === "category") {
+      var result0 = { platform: platform, phase: phase, filled: [], manual: [], photos: 0, submitted: false };
+      if (showUi) showOverlay(result0, autoSubmit);
+      await autoSelectCategory(draft);
+      return result0;
+    }
+
+    var r = await fillForm(draft, options, platform);
+    var result = {
+      platform: platform, phase: phase,
+      filled: r.filled, manual: r.manual, photos: r.photos, submitted: false
+    };
+
+    if (showUi) showOverlay(result, autoSubmit);
+
+    if (autoSubmit) {
+      // Give image upload + framework state a moment to settle before publishing.
+      await sleep(7000);
+      result.submitted = await trySubmit(platform);
+    } else {
+      highlightButton(findSubmitButton(platform));
+    }
+    return result;
+  }
+
+  window.__vintamie = {
+    __loaded: true,
+    version: VERSION,
+    autofill: autofill,
+    detectPlatform: detectPlatform,
+    detectPhase: detectPhase
+  };
+})();

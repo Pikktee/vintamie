@@ -135,6 +135,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     loginView.style.display = "none";
     connectedView.style.display = "block";
     userEmailSpan.textContent = email;
+    loadDrafts();
   }
 
   function showLogin() {
@@ -145,3 +146,103 @@ document.addEventListener("DOMContentLoaded", async () => {
     userEmailSpan.textContent = "";
   }
 });
+
+// ---------------------------------------------------------------------------
+// Draft list + "launch straight onto a platform" flow
+// ---------------------------------------------------------------------------
+
+// Load the user's drafts and initialise the auto-submit toggle from their saved
+// profile preference, so an offer can be launched onto a platform in one click.
+async function loadDrafts() {
+  const listEl = document.getElementById("draft-list");
+  const statusEl = document.getElementById("draft-list-status");
+  const autoToggle = document.getElementById("auto-submit-toggle");
+  if (!listEl) return;
+
+  chrome.storage.local.get("vintamie_token", async (data) => {
+    const token = data.vintamie_token;
+    if (!token) return;
+
+    try {
+      const meRes = await fetch(`${backendUrl}/api/auth/me`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (meRes.ok) {
+        const me = await meRes.json();
+        if (autoToggle) autoToggle.checked = !!me.auto_submit;
+      }
+    } catch (e) { /* toggle just defaults to off */ }
+
+    try {
+      const res = await fetch(`${backendUrl}/api/drafts`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error();
+      renderDrafts(await res.json());
+    } catch (e) {
+      if (statusEl) statusEl.textContent = "Angebote konnten nicht geladen werden.";
+    }
+  });
+}
+
+function renderDrafts(drafts) {
+  const listEl = document.getElementById("draft-list");
+  const statusEl = document.getElementById("draft-list-status");
+  if (!listEl) return;
+  listEl.innerHTML = "";
+
+  if (!drafts || drafts.length === 0) {
+    if (statusEl) statusEl.textContent = "Noch keine Angebote. Fotografiere zuerst ein Teil im Dashboard.";
+    return;
+  }
+  if (statusEl) statusEl.textContent = `${drafts.length} ${drafts.length === 1 ? "Angebot" : "Angebote"}:`;
+
+  drafts.forEach((draft) => {
+    const imgPath = draft.image_path || "";
+    const imageUrl = imgPath
+      ? (imgPath.startsWith("http") ? imgPath : `${backendUrl}${imgPath}`)
+      : "";
+    const card = document.createElement("div");
+    card.style.cssText = "background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:8px; display:flex; gap:8px; align-items:center;";
+    card.innerHTML = `
+      <img src="${imageUrl}" style="width:40px; height:40px; object-fit:cover; border-radius:5px; background:#000; flex-shrink:0;" />
+      <div style="flex-grow:1; min-width:0;">
+        <div style="font-size:12px; font-weight:600; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(draft.title || "Unbenannt")}</div>
+        <div style="font-size:11px; color:#09b0b7; font-weight:bold;">${draft.price != null ? Math.round(draft.price) + " €" : ""}</div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:4px; flex-shrink:0;">
+        <button data-id="${draft.id}" data-platform="vinted" class="vintamie-launch" style="background:#09b0b7; color:#000; border:none; border-radius:5px; font-size:10px; font-weight:bold; padding:4px 8px; cursor:pointer; white-space:nowrap;">Vinted</button>
+        <button data-id="${draft.id}" data-platform="kleinanzeigen" class="vintamie-launch" style="background:rgba(255,255,255,0.08); color:#f8fafc; border:1px solid rgba(255,255,255,0.12); border-radius:5px; font-size:10px; font-weight:bold; padding:4px 8px; cursor:pointer; white-space:nowrap;">Kleinanz.</button>
+      </div>
+    `;
+    listEl.appendChild(card);
+  });
+
+  listEl.querySelectorAll(".vintamie-launch").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      startAutofill(parseInt(btn.dataset.id, 10), btn.dataset.platform);
+    });
+  });
+}
+
+// Queue the draft for autofill, then open the platform's "new listing" page in a
+// new tab. The content script there reads the queued draft and fills the form.
+function startAutofill(draftId, platform) {
+  const autoToggle = document.getElementById("auto-submit-toggle");
+  const autoSubmit = !!(autoToggle && autoToggle.checked);
+  chrome.storage.local.set({
+    vintamie_pending_autofill: { draftId: draftId, platform: platform, autoSubmit: autoSubmit }
+  }, () => {
+    const url = platform === "vinted"
+      ? "https://www.vinted.de/items/new"
+      : "https://www.kleinanzeigen.de/p-anzeige-aufgeben.html";
+    chrome.tabs.create({ url: url });
+    window.close();
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str == null ? "" : String(str);
+  return div.innerHTML;
+}

@@ -17,6 +17,7 @@ export default function Settings({ user, onLogout, onUpdateUser }) {
   const [pricingOffset, setPricingOffset] = useState(0);
   const [defaultZip, setDefaultZip] = useState('');
   const [defaultShipping, setDefaultShipping] = useState('');
+  const [autoSubmit, setAutoSubmit] = useState(false);
 
   // Synchronize local state when user prop changes
   useEffect(() => {
@@ -27,6 +28,7 @@ export default function Settings({ user, onLogout, onUpdateUser }) {
       setPricingOffset(user.pricing_offset || 0);
       setDefaultZip(user.default_zip || '');
       setDefaultShipping(user.default_shipping || '');
+      setAutoSubmit(user.auto_submit || false);
     }
   }, [user]);
 
@@ -46,7 +48,8 @@ export default function Settings({ user, onLogout, onUpdateUser }) {
         default_zip: defaultZip,
         default_city: '', // Ort ist überflüssig, PLZ reicht
         default_category: '', // Standard-Kategorie entfernt (KI bestimmt diese immer)
-        default_shipping: defaultShipping
+        default_shipping: defaultShipping,
+        auto_submit: autoSubmit
       });
       
       setSuccess(true);
@@ -295,6 +298,43 @@ export default function Settings({ user, onLogout, onUpdateUser }) {
                     value={pricingOffset}
                     onChange={(e) => setPricingOffset(e.target.value)}
                   />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ display: 'flex', alignItems: 'center' }}>
+                    Automatisch veröffentlichen
+                    <span className="tooltip-container">
+                      <HelpCircle size={14} />
+                      <span className="tooltip-text">Wenn aktiv, klickt Vintamie nach dem Ausfüllen selbst auf „Veröffentlichen". Standardmäßig prüfst du das Angebot zuerst und stellst es selbst online.</span>
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setAutoSubmit(!autoSubmit)}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      gap: '0.75rem', width: '100%', padding: '0.75rem 0.9rem',
+                      background: autoSubmit ? 'var(--primary-glow)' : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${autoSubmit ? 'var(--primary)' : 'var(--glass-border)'}`,
+                      borderRadius: '10px', cursor: 'pointer', transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)', textAlign: 'left', lineHeight: 1.3 }}>
+                      <Zap size={16} style={{ color: autoSubmit ? 'var(--primary)' : 'var(--text-muted)', flexShrink: 0 }} />
+                      {autoSubmit ? 'Angebote werden sofort online gestellt' : 'Du prüfst & veröffentlichst selbst'}
+                    </span>
+                    <span style={{
+                      flexShrink: 0, width: '44px', height: '26px', borderRadius: '99px',
+                      background: autoSubmit ? 'var(--primary)' : 'rgba(255,255,255,0.15)',
+                      position: 'relative', transition: 'all 0.2s ease'
+                    }}>
+                      <span style={{
+                        position: 'absolute', top: '3px', left: autoSubmit ? '21px' : '3px',
+                        width: '20px', height: '20px', borderRadius: '50%', background: '#fff',
+                        transition: 'all 0.2s ease', boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                      }} />
+                    </span>
+                  </button>
                 </div>
               </div>
 

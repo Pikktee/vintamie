@@ -31,6 +31,7 @@ class UserResponse(UserBase):
     default_city: Optional[str] = None
     default_category: Optional[str] = None
     default_shipping: Optional[str] = None
+    auto_submit: Optional[bool] = False
     is_admin: Optional[bool] = False
 
     class Config:
@@ -45,6 +46,7 @@ class UserUpdate(BaseModel):
     default_city: Optional[str] = None
     default_category: Optional[str] = None
     default_shipping: Optional[str] = None
+    auto_submit: Optional[bool] = None
 
 # Draft Schemas
 class DraftBase(BaseModel):

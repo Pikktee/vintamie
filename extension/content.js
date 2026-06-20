@@ -56,6 +56,52 @@ window.addEventListener("message", (event) => {
 // Initialize
 function init() {
   injectFloatingButton();
+  checkPendingAutofill();
+}
+
+// Small helper for authenticated GET requests.
+function fetchJson(url, token) {
+  return fetch(url, { headers: { "Authorization": `Bearer ${token}` } })
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+}
+
+// When the popup queued "open platform + autofill this draft", the listing page
+// loads with a pending entry in storage. Pick it up and run the engine. On the
+// Kleinanzeigen two-step flow this fires again after the step-2 reload.
+function checkPendingAutofill() {
+  chrome.storage.local.get(
+    ["vintamie_pending_autofill", "vintamie_token", "vintamie_backend_url"],
+    async (data) => {
+      const pending = data.vintamie_pending_autofill;
+      const token = data.vintamie_token;
+      if (!pending || !token) return;
+      if (data.vintamie_backend_url) backendUrl = data.vintamie_backend_url;
+
+      const host = window.location.hostname;
+      if (pending.platform === "vinted" && !host.includes("vinted")) return;
+      if (pending.platform === "kleinanzeigen" && !host.includes("kleinanzeigen")) return;
+
+      const settings = await fetchJson(`${backendUrl}/api/auth/me`, token);
+      if (settings) window.vintamieUserSettings = settings;
+
+      const draft = await fetchJson(`${backendUrl}/api/drafts/${pending.draftId}`, token);
+      if (!draft) return;
+
+      const autoSubmit = (typeof pending.autoSubmit === "boolean")
+        ? pending.autoSubmit
+        : !!(settings && settings.auto_submit);
+
+      autofillForm(draft, autoSubmit);
+
+      // Only clear the queue once we are on the real form, so the Kleinanzeigen
+      // category step (step 1) -> form (step 2) reload still finds the draft.
+      const phase = window.__vintamie.detectPhase(pending.platform);
+      if (phase === "form") {
+        chrome.storage.local.remove("vintamie_pending_autofill");
+      }
+    }
+  );
 }
 
 // Inject the Vintamie floating button on the page
@@ -278,141 +324,28 @@ function renderDraftsList() {
   });
 }
 
-// Perform Autofill logic on the host page form
-async function autofillForm(draft) {
-  const host = window.location.hostname;
-  
-  if (host.includes("kleinanzeigen")) {
-    fillKleinanzeigen(draft);
-  } else if (host.includes("vinted")) {
-    fillVinted(draft);
+// Perform Autofill by delegating to the shared Vintamie engine (autofill-engine.js,
+// loaded as a content script before this file). All the platform-specific field
+// logic, the React-safe value setter, the photo upload and the feedback overlay
+// live in the engine so the Android WebView shell can reuse the exact same code.
+async function autofillForm(draft, autoSubmit) {
+  if (!window.__vintamie || !window.__vintamie.autofill) {
+    console.error("Vintamie: Autofill-Engine nicht geladen.");
+    return;
   }
-}
-
-// Kleinanzeigen Autofill Logic
-async function fillKleinanzeigen(draft) {
-  // Title selector
-  const titleInput = document.querySelector("#postad-title") || document.querySelector("input[name='title']") || document.querySelector("input[id*='title']");
-  if (titleInput) {
-    titleInput.value = draft.title;
-    titleInput.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-
-  // Description selector
-  const descTextarea = document.querySelector("#pstad-descrptn") || document.querySelector("textarea[name='description']") || document.querySelector("textarea[id*='descr']");
-  if (descTextarea) {
-    descTextarea.value = draft.description;
-    descTextarea.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-
-  // Price selector
-  const priceInput = document.querySelector("#pstad-price") || document.querySelector("input[name='price']") || document.querySelector("input[id*='price']");
-  if (priceInput) {
-    priceInput.value = Math.round(draft.price);
-    priceInput.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-
-  // Set price type to Festpreis (Usually the first radio button in the group)
-  const priceRadios = document.querySelectorAll("input[name='priceType']");
-  if (priceRadios && priceRadios.length > 0) {
-    // Select Festpreis (commonly value "FIXED")
-    for (let radio of priceRadios) {
-      if (radio.value === "FIXED" || radio.id.includes("fixed") || radio.id.includes("fest")) {
-        radio.checked = true;
-        radio.dispatchEvent(new Event('change', { bubbles: true }));
-        break;
-      }
-    }
-  }
-
-  // Autofill Zip code (Postleitzahl) if configured in settings
-  const userSettings = window.vintamieUserSettings || {};
-  if (userSettings.default_zip) {
-    const postcodeInput = document.querySelector("#postad-postcode") || document.querySelector("input[name='postcode']") || document.querySelector("input[id*='postcode']") || document.querySelector("input[placeholder*='PLZ']");
-    if (postcodeInput) {
-      postcodeInput.value = userSettings.default_zip;
-      postcodeInput.dispatchEvent(new Event('input', { bubbles: true }));
-      postcodeInput.dispatchEvent(new Event('change', { bubbles: true }));
-      postcodeInput.dispatchEvent(new Event('blur', { bubbles: true })); // Trigger blur to resolve city in Kleinanzeigen
-    }
-  }
-
-  // Image upload
-  if (draft.image_path) {
-    uploadImage(draft.image_path);
-  }
-}
-
-// Vinted Autofill Logic
-async function fillVinted(draft) {
-  // Title
-  const titleInput = document.querySelector("input[name='title']") || document.querySelector("input[placeholder*='titel']") || document.querySelector("input[id*='title']");
-  if (titleInput) {
-    titleInput.value = draft.title;
-    titleInput.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-
-  // Description
-  const descTextarea = document.querySelector("textarea[name='description']") || document.querySelector("textarea[placeholder*='beschreib']") || document.querySelector("textarea[id*='desc']");
-  if (descTextarea) {
-    descTextarea.value = draft.description;
-    descTextarea.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-
-  // Price
-  const priceInput = document.querySelector("input[name='price']") || document.querySelector("input[placeholder*='0,00']") || document.querySelector("input[id*='price']");
-  if (priceInput) {
-    priceInput.value = Math.round(draft.price);
-    priceInput.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-
-  // Image upload
-  if (draft.image_path) {
-    uploadImage(draft.image_path);
-  }
-}
-
-// Universal programmatical Image Upload function
-async function uploadImage(imagePath) {
+  const settings = window.vintamieUserSettings || {};
+  const submit = (typeof autoSubmit === "boolean") ? autoSubmit : !!settings.auto_submit;
   try {
-    const imageUrl = imagePath.startsWith("http") ? imagePath : `${backendUrl}${imagePath}`;
-    
-    // Fetch image as blob
-    const response = await fetch(imageUrl);
-    const blob = await response.blob();
-    
-    // Create File object
-    const file = new File([blob], "vintamie_artikel.jpg", { type: "image/jpeg" });
-    
-    // Find file inputs
-    const fileInputs = document.querySelectorAll("input[type='file']");
-    if (fileInputs.length === 0) {
-      console.warn("Vintamie: Kein File-Input Element gefunden.");
-      return;
-    }
-
-    // Try to find the primary image file input
-    // Usually on Vinted/Kleinanzeigen, we can target the first visible file input
-    let targetInput = null;
-    for (let input of fileInputs) {
-      if (input.style.display !== "none" || input.id || input.name || input.className) {
-        targetInput = input;
-        break;
-      }
-    }
-    
-    if (!targetInput) targetInput = fileInputs[0];
-
-    // Assign file via DataTransfer
-    const dataTransfer = new DataTransfer();
-    dataTransfer.items.add(file);
-    targetInput.files = dataTransfer.files;
-    
-    // Trigger change event to kick off host page upload handlers
-    targetInput.dispatchEvent(new Event("change", { bubbles: true }));
-    console.log("Vintamie: Bild erfolgreich in den File-Input injiziert!");
+    await window.__vintamie.autofill(draft, {
+      backendUrl: backendUrl,
+      userZip: settings.default_zip || "",
+      userCity: settings.default_city || "",
+      autoSubmit: submit,
+      imageMode: "datatransfer",
+      showOverlay: true
+    });
   } catch (err) {
-    console.error("Vintamie: Bild-Injektion fehlgeschlagen:", err);
+    console.error("Vintamie: Autofill fehlgeschlagen:", err);
   }
 }
 

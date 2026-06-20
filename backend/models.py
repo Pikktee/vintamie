@@ -20,6 +20,9 @@ class User(Base):
     default_city = Column(String, nullable=True)
     default_category = Column(String, nullable=True)
     default_shipping = Column(String, nullable=True)
+    # When True, autofill on Vinted/Kleinanzeigen also clicks "publish" itself.
+    # Default False so the user reviews the prefilled listing and publishes manually.
+    auto_submit = Column(Boolean, default=False, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

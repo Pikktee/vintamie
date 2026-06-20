@@ -66,7 +66,8 @@ def run_migrations():
         ("default_zip", "VARCHAR(20)"),
         ("default_city", "VARCHAR(100)"),
         ("default_category", "VARCHAR(100)"),
-        ("default_shipping", "VARCHAR(200)")
+        ("default_shipping", "VARCHAR(200)"),
+        ("auto_submit", "BOOLEAN DEFAULT 0")
     ]:
         try:
             db.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}"))
@@ -80,7 +81,7 @@ def run_migrations():
 
 run_migrations()
 
-app = FastAPI(title="Vintamie API", version="2.3.20")
+app = FastAPI(title="Vintamie API", version="2.4.0")
 
 UPLOAD_DIR = "/data/uploads" if os.path.isdir("/data") else "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)

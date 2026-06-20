@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Vintamie Assistant",
-  "version": "2.3.20",
+  "version": "2.4.0",
   "description": "F\u00fclle deine Vinted und Kleinanzeigen Inserate automatisch aus dem Vintamie-Dashboard aus.",
   "permissions": [
     "activeTab",
@@ -12,7 +12,9 @@
     "http://localhost:8000/*",
     "http://localhost:5173/*",
     "https://vintamie.henrikheil.net/*",
+    "https://api.vintamie.henrikheil.net/*",
     "https://*.vinted.de/*",
+    "https://*.vinted.fr/*",
     "https://*.kleinanzeigen.de/*"
   ],
   "action": {
@@ -26,9 +28,10 @@
       "matches": [
         "https://*.vinted.de/items/new*",
         "https://*.vinted.fr/items/new*",
-        "https://*.kleinanzeigen.de/p-anzeige-aufgeben.html*"
+        "https://*.kleinanzeigen.de/p-anzeige-aufgeben*"
       ],
       "js": [
+        "autofill-engine.js",
         "content.js"
       ],
       "run_at": "document_end"

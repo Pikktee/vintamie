@@ -47,6 +47,12 @@ class MainActivity : AppCompatActivity() {
     private var hasAutoFilled = false
     // Guards the automatic category pre-selection on the Kleinanzeigen step 1 page
     private var hasAutoCategory = false
+    // Whether the user enabled "publish automatically" in their profile settings.
+    // Default off so the user reviews the prefilled listing and publishes himself.
+    private var autoSubmitSetting = false
+    // Cached autofill engine JS (the very same file the browser extension uses,
+    // bundled here as an asset). Read once, then reused for every injection.
+    private var engineJsCache: String? = null
 
     private val okHttpClient = OkHttpClient()
     
@@ -115,17 +121,19 @@ class MainActivity : AppCompatActivity() {
 
                 if (activeDraftJson != null && (isFormPage || isKleinanzeigenCategory)) {
                     fabFill.visibility = View.VISIBLE
-                    // On the actual form, fill (and submit) automatically once it has loaded.
+                    // On the actual form, fill once it has loaded. Whether it ALSO
+                    // submits depends on the user's "publish automatically" setting
+                    // (default off -> the user reviews and clicks publish himself).
                     if (isFormPage && !hasAutoFilled) {
                         hasAutoFilled = true
                         // The forms render dynamically; give them a moment before injecting.
-                        webView.postDelayed({ injectAutofillScript(autoSubmit = true) }, 1200)
+                        webView.postDelayed({ injectAutofill(autoSubmit = autoSubmitSetting) }, 1200)
                     }
-                    // On the category picker, try to auto-select the category via the
-                    // keyword suggestion field so the user reaches the form hands-free.
+                    // On the category picker, let the engine pre-select the category via
+                    // the keyword suggestion field so the user reaches the form hands-free.
                     if (isKleinanzeigenCategory && !hasAutoCategory) {
                         hasAutoCategory = true
-                        webView.postDelayed({ injectCategorySelectScript() }, 1200)
+                        webView.postDelayed({ injectAutofill(autoSubmit = false) }, 1200)
                     }
                 } else {
                     fabFill.visibility = View.GONE
@@ -180,7 +188,7 @@ class MainActivity : AppCompatActivity() {
         // Configure floating fill action button (manual fill, no auto-submit so the
         // user can review before publishing)
         fabFill.setOnClickListener {
-            injectAutofillScript(autoSubmit = false)
+            injectAutofill(autoSubmit = false)
         }
 
         // Close button: leave the external listing page and return to the dashboard
@@ -341,6 +349,7 @@ class MainActivity : AppCompatActivity() {
                         val json = JSONObject(bodyString)
                         val zip = json.optString("default_zip")
                         userZip = if (zip.isNullOrEmpty() || zip == "null") null else zip
+                        autoSubmitSetting = json.optBoolean("auto_submit", false)
                     } catch (e: Exception) {
                         // Ignore malformed profile responses
                     }
@@ -362,305 +371,57 @@ class MainActivity : AppCompatActivity() {
         webView.loadUrl(frontendUrl)
     }
 
-    // Injects Javascript on the Kleinanzeigen category picker (step 1). Kleinanzeigen has
-    // no plain category field; instead it matches a keyword to a category via a suggestion
-    // dropdown. We type our category (or, as a fallback, the title) and click the first
-    // suggestion, which navigates to the form (step 2). If no suggestion can be clicked the
-    // field stays prefilled so the user only needs a single tap.
-    private fun injectCategorySelectScript() {
-        val draftJson = activeDraftJson ?: return
-        val escapedJson = draftJson.replace("\\", "\\\\").replace("'", "\\'")
-
-        val js = """
-            (function() {
-                const draft = JSON.parse('$escapedJson');
-                const keyword = (draft.category && draft.category.trim()) ? draft.category.trim() : (draft.title || '').trim();
-                if (!keyword) return;
-
-                function findInput() {
-                    let el = document.querySelector("#pstad-keyword")
-                        || document.querySelector("#postad-keyword")
-                        || document.querySelector("input[name='keyword']")
-                        || document.querySelector("input[type='search']");
-                    if (el) return el;
-                    const inputs = document.querySelectorAll("input[type='text'], input:not([type])");
-                    for (const i of inputs) {
-                        const p = (i.placeholder || '').toLowerCase();
-                        if (p.includes('verkauf') || p.includes('was ') || p.includes('suchst') || p.includes('bieten') || p.includes('artikel')) {
-                            return i;
-                        }
-                    }
-                    return null;
-                }
-
-                let tries = 0;
-                function start() {
-                    tries++;
-                    const input = findInput();
-                    if (!input) {
-                        if (tries < 20) setTimeout(start, 500);
-                        return;
-                    }
-                    input.focus();
-                    input.value = keyword;
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                    input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
-                    input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
-                    setTimeout(pickSuggestion, 1500);
-                }
-
-                let pickTries = 0;
-                function pickSuggestion() {
-                    pickTries++;
-                    const selectors = [
-                        "#pstad-keyword-suggestions li",
-                        "#postad-keyword-suggestions li",
-                        "ul[role='listbox'] li[role='option']",
-                        "ul[role='listbox'] li",
-                        "[class*='uggestion'] li",
-                        "[class*='uggestion'] a",
-                        "li[role='option']",
-                        "a[href*='p-kategorie']"
-                    ];
-                    let item = null;
-                    for (const s of selectors) {
-                        const el = document.querySelector(s);
-                        if (el) { item = el; break; }
-                    }
-                    if (item) {
-                        item.click();
-                        return;
-                    }
-                    if (pickTries < 6) setTimeout(pickSuggestion, 1000);
-                    // Otherwise: leave the field prefilled for a manual tap.
-                }
-
-                start();
-            })();
-        """.trimIndent()
-
-        webView.evaluateJavascript(js, null)
+    // Reads the shared autofill engine JS (bundled as an asset; the exact same
+    // file the browser extension uses). Cached after the first read.
+    private fun readEngineJs(): String {
+        engineJsCache?.let { return it }
+        return try {
+            val js = assets.open("autofill-engine.js").bufferedReader().use { it.readText() }
+            engineJsCache = js
+            js
+        } catch (e: Exception) {
+            ""
+        }
     }
 
-    // Injects Javascript to autofill fields, trigger the file upload chooser click and
-    // (optionally) submit the listing automatically. The form on both platforms renders
-    // dynamically, so the injected script polls for the fields before filling them.
-    private fun injectAutofillScript(autoSubmit: Boolean) {
+    // Injects the shared engine and runs the autofill. The engine itself detects
+    // the platform and the phase (Kleinanzeigen category picker vs. the real form),
+    // fills the fields with a React/Vue-safe native value setter, triggers the
+    // photo file chooser (intercepted in onShowFileChooser to supply the draft
+    // photo), shows the result overlay and — only when autoSubmit is true —
+    // publishes the listing automatically.
+    private fun injectAutofill(autoSubmit: Boolean) {
         val draftJson = activeDraftJson ?: return
         val escapedJson = draftJson.replace("\\", "\\\\").replace("'", "\\'")
         val zip = userZip?.replace("\\", "\\\\")?.replace("'", "\\'") ?: ""
+        val engine = readEngineJs()
+        if (engine.isEmpty()) {
+            Toast.makeText(this, "Autofill-Engine konnte nicht geladen werden.", Toast.LENGTH_SHORT).show()
+            return
+        }
 
-        val js = """
+        // The engine is injected as a raw string (it must NOT pass through Kotlin
+        // string interpolation, or a literal '$' in the JS would corrupt it / break
+        // the build). Only the tiny caller below — which carries the draft, zip and
+        // autoSubmit flag — uses interpolation. The caller runs in the engine's
+        // completion callback so window.__vintamie is guaranteed to exist.
+        val caller = """
             (function() {
-                const draft = JSON.parse('$escapedJson');
-                const userZip = '$zip';
-                const autoSubmit = $autoSubmit;
-                const isVinted = window.location.hostname.includes('vinted');
-
-                function setVal(el, val) {
-                    if (!el || val === undefined || val === null) return false;
-                    try { el.focus(); } catch (e) {}
-                    el.value = val;
-                    el.dispatchEvent(new Event('input', { bubbles: true }));
-                    el.dispatchEvent(new Event('change', { bubbles: true }));
-                    return true;
-                }
-
-                // --- Generic attribute (Zusatzfelder) matching --------------------
-                function norm(s) {
-                    return (s == null ? '' : String(s)).toLowerCase()
-                        .replace(/[^a-z0-9äöüß]+/g, ' ').trim();
-                }
-
-                // Collect label-ish text describing a form control
-                function labelTextFor(el) {
-                    let txt = '';
-                    if (el.id) {
-                        const lab = document.querySelector("label[for='" + el.id + "']");
-                        if (lab) txt += ' ' + lab.textContent;
-                    }
-                    txt += ' ' + (el.getAttribute('aria-label') || '');
-                    txt += ' ' + (el.getAttribute('name') || '');
-                    txt += ' ' + (el.getAttribute('placeholder') || '');
-                    let node = el.parentElement;
-                    let depth = 0;
-                    while (node && depth < 3) {
-                        if (node.tagName === 'LABEL' || node.tagName === 'LEGEND') {
-                            txt += ' ' + node.textContent;
-                        }
-                        const lab = node.querySelector ? node.querySelector('label, legend') : null;
-                        if (lab) txt += ' ' + lab.textContent;
-                        node = node.parentElement; depth++;
-                    }
-                    return norm(txt);
-                }
-
-                function pickOption(sel, value) {
-                    const nv = norm(value);
-                    if (!nv) return null;
-                    for (const opt of sel.options) {
-                        if (norm(opt.textContent) === nv) return opt;
-                    }
-                    for (const opt of sel.options) {
-                        const ot = norm(opt.textContent);
-                        if (ot && opt.value && (ot.includes(nv) || nv.includes(ot))) return opt;
-                    }
-                    return null;
-                }
-
-                function parseAttributes() {
-                    let a = draft.attributes;
-                    if (!a) return {};
-                    if (typeof a === 'string') { try { a = JSON.parse(a); } catch (e) { return {}; } }
-                    return (a && typeof a === 'object') ? a : {};
-                }
-
-                function fillAttributes() {
-                    const attrs = parseAttributes();
-                    const entries = Object.keys(attrs).map(function(k){ return [k, attrs[k]]; });
-                    if (entries.length === 0) return;
-
-                    const selects = Array.from(document.querySelectorAll('select'));
-                    const texts = Array.from(document.querySelectorAll("input[type='text'], input:not([type])"));
-
-                    for (const pair of entries) {
-                        const label = norm(pair[0]);
-                        const value = pair[1] == null ? '' : String(pair[1]);
-                        if (!label || !value) continue;
-
-                        // Special-case Kleinanzeigen shipping toggle (often a checkbox)
-                        if (label.indexOf('versand') !== -1) {
-                            const wantsShip = norm(value).indexOf('moglich') !== -1 || norm(value).indexOf('versand') !== -1;
-                            const boxes = document.querySelectorAll("input[type='checkbox'], input[type='radio']");
-                            let toggled = false;
-                            for (const b of boxes) {
-                                if (labelTextFor(b).indexOf('versand') !== -1) {
-                                    if (b.checked !== wantsShip) { b.click(); }
-                                    toggled = true;
-                                }
-                            }
-                            if (toggled) continue;
-                        }
-
-                        let done = false;
-                        for (const sel of selects) {
-                            if (sel.__vintamieKnown) continue;
-                            if (labelTextFor(sel).indexOf(label) === -1) continue;
-                            const opt = pickOption(sel, value);
-                            if (opt) {
-                                sel.value = opt.value;
-                                sel.__vintamieKnown = true;
-                                sel.dispatchEvent(new Event('change', { bubbles: true }));
-                                done = true;
-                                break;
-                            }
-                        }
-                        if (done) continue;
-
-                        for (const inp of texts) {
-                            if (inp.__vintamieKnown) continue;
-                            if (labelTextFor(inp).indexOf(label) === -1) continue;
-                            setVal(inp, value);
-                            inp.__vintamieKnown = true;
-                            break;
-                        }
-                    }
-                }
-
-                let fillAttempts = 0;
-                function fill() {
-                    fillAttempts++;
-                    let title, desc, price;
-                    if (isVinted) {
-                        title = document.querySelector("input[name='title']") || document.querySelector("input[placeholder*='titel']") || document.querySelector("input[id*='title']");
-                        desc = document.querySelector("textarea[name='description']") || document.querySelector("textarea[placeholder*='beschreib']") || document.querySelector("textarea[id*='desc']");
-                        price = document.querySelector("input[name='price']") || document.querySelector("input[placeholder*='0,00']") || document.querySelector("input[id*='price']");
-                    } else {
-                        title = document.querySelector("#postad-title") || document.querySelector("input[name='title']") || document.querySelector("input[id*='title']");
-                        desc = document.querySelector("#pstad-descrptn") || document.querySelector("textarea[name='description']") || document.querySelector("textarea[id*='descr']");
-                        price = document.querySelector("#pstad-price") || document.querySelector("input[name='price']") || document.querySelector("input[id*='price']");
-                    }
-
-                    // The form may not be rendered yet - retry for a few seconds.
-                    if (!title && fillAttempts < 20) {
-                        setTimeout(fill, 500);
-                        return;
-                    }
-
-                    setVal(title, draft.title);
-                    setVal(desc, draft.description);
-                    if (title) title.__vintamieKnown = true;
-                    if (desc) desc.__vintamieKnown = true;
-                    if (price) price.__vintamieKnown = true;
-                    if (draft.price !== undefined && draft.price !== null) {
-                        setVal(price, String(Math.round(draft.price)));
-                    }
-
-                    if (!isVinted) {
-                        // Festpreis (fixed price)
-                        const priceRadios = document.querySelectorAll("input[name='priceType']");
-                        for (let radio of priceRadios) {
-                            if (radio.value === 'FIXED' || (radio.id && (radio.id.includes('fixed') || radio.id.includes('fest')))) {
-                                radio.checked = true;
-                                radio.dispatchEvent(new Event('change', { bubbles: true }));
-                                break;
-                            }
-                        }
-                        // Postcode (required for submission) from the user's saved profile
-                        if (userZip) {
-                            const postcode = document.querySelector("#postad-postcode") || document.querySelector("input[name='postcode']") || document.querySelector("input[id*='postcode']") || document.querySelector("input[placeholder*='PLZ']");
-                            if (postcode) {
-                                setVal(postcode, userZip);
-                                postcode.__vintamieKnown = true;
-                                postcode.dispatchEvent(new Event('blur', { bubbles: true }));
-                            }
-                        }
-                        // Category-specific attributes ("Zusatzfelder"). They may render
-                        // slightly after the core fields, so attempt a few times.
-                        fillAttributes();
-                        setTimeout(fillAttributes, 1500);
-                        setTimeout(fillAttributes, 3500);
-                    }
-
-                    // Trigger the native file chooser to upload the draft photo.
-                    const fileInput = document.querySelector("input[type='file']");
-                    if (fileInput) { fileInput.click(); }
-
-                    // Give the image upload and attribute fills time to settle, then
-                    // submit if requested.
-                    if (autoSubmit) {
-                        setTimeout(trySubmit, 8000);
-                    }
-                }
-
-                let submitAttempts = 0;
-                function trySubmit() {
-                    submitAttempts++;
-                    let btn;
-                    if (isVinted) {
-                        btn = document.querySelector("button[data-testid*='submit']") || document.querySelector("button[type='submit']");
-                    } else {
-                        btn = document.querySelector("#pstad-submit") || document.querySelector("button[type='submit']");
-                        if (!btn) {
-                            const candidates = document.querySelectorAll("button, input[type='submit']");
-                            for (let b of candidates) {
-                                const t = (b.innerText || b.value || '').toLowerCase();
-                                if (t.includes('anzeige aufgeben') || t.includes('veröffentlichen') || t.includes('einstellen')) { btn = b; break; }
-                            }
-                        }
-                    }
-                    if (btn) {
-                        btn.click();
-                    } else if (submitAttempts < 5) {
-                        setTimeout(trySubmit, 1500);
-                    }
-                }
-
-                fill();
+                try {
+                    var draft = JSON.parse('$escapedJson');
+                    window.__vintamie.autofill(draft, {
+                        userZip: '$zip',
+                        autoSubmit: $autoSubmit,
+                        imageMode: 'native',
+                        showOverlay: true
+                    });
+                } catch (e) { console.error('Vintamie autofill failed', e); }
             })();
         """.trimIndent()
 
-        webView.evaluateJavascript(js, null)
+        webView.evaluateJavascript(engine) {
+            webView.evaluateJavascript(caller, null)
+        }
 
         // Keep the draft loaded so the manual FAB can be used to retry if needed.
         fabFill.visibility = View.GONE

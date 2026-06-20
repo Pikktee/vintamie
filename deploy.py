@@ -14,6 +14,26 @@ def run_cmd(cmd, cwd=None):
         sys.exit(res.returncode)
     return res.stdout.strip()
 
+def sync_shared_engine():
+    """Mirror the single-source autofill engine (shared/autofill-engine.js) into
+    the browser extension and the Android assets, so every platform ships the
+    exact same autofill logic. Run on each deploy to keep the copies in sync."""
+    src = "shared/autofill-engine.js"
+    if not os.path.exists(src):
+        print("⚠ shared/autofill-engine.js not found — skipping engine sync.")
+        return
+    with open(src, "r") as f:
+        content = f.read()
+    targets = [
+        "extension/autofill-engine.js",
+        "android/app/src/main/assets/autofill-engine.js",
+    ]
+    for dst in targets:
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        with open(dst, "w") as f:
+            f.write(content)
+        print(f"✔ Synced autofill engine -> {dst}")
+
 def main():
     # 1. Get current version
     version_file = "VERSION"
@@ -120,6 +140,9 @@ def main():
         with open(android_gradle_path, "w") as f:
             f.write(content)
         print("✔ Updated android/app/build.gradle version.")
+
+    # 5c. Keep the shared autofill engine mirrored into extension + android assets
+    sync_shared_engine()
 
     # 6. Git commit & push
     run_cmd("git add .")
