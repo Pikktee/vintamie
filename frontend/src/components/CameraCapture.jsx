@@ -386,28 +386,26 @@ const CameraCapture = ({
         </button>
       </div>
 
-      {/* Camera Controls Overlay (Gallery, Shutter, Analyze) */}
-      <div className="camera-overlay-bottom">
+      {/* Gradient scrim behind the controls (bottom in portrait, right strip in landscape) */}
+      <div className="camera-scrim" aria-hidden="true" />
 
-        {/* Review chip: open a full grid to view & remove all captured photos */}
-        {selectedImages.length > 0 && (
+      {/* Captured photos cluster: review chip + thumbnail strip */}
+      {selectedImages.length > 0 && (
+        <div className="camera-captured">
           <button className="camera-review-chip" onClick={() => setShowReview(true)}>
             <Images size={15} />
             <span>{selectedImages.length} {selectedImages.length === 1 ? 'Foto' : 'Fotos'}</span>
           </button>
-        )}
 
-        {/* Captured Thumbnails in Camera view */}
-        {selectedImages.length > 0 && (
           <div className="camera-thumbnails-container">
             {selectedImages.map((img) => (
-              <div key={img.id} style={{ 
-                position: 'relative', 
-                width: '48px', 
-                height: '48px', 
-                borderRadius: 'var(--radius-sm)', 
-                overflow: 'hidden', 
-                flexShrink: 0, 
+              <div key={img.id} style={{
+                position: 'relative',
+                width: '48px',
+                height: '48px',
+                borderRadius: 'var(--radius-sm)',
+                overflow: 'hidden',
+                flexShrink: 0,
                 border: '2px solid var(--primary)',
                 boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
                 opacity: img.isCompressing ? 0.7 : 1
@@ -447,88 +445,83 @@ const CameraCapture = ({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Primary controls: gallery / shutter / done.
+          The grid in CSS keeps the shutter locked dead-centre. */}
+      <div className="camera-controls">
+        {/* Gallery */}
+        <button
+          className="btn btn-secondary camera-ctrl camera-ctrl-gallery"
+          onClick={triggerFileInput}
+          style={{
+            minHeight: 'auto',
+            width: '48px',
+            height: '48px',
+            padding: 0,
+            borderRadius: '50%',
+            background: 'rgba(255,255,255,0.12)',
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+            border: '1px solid rgba(255,255,255,0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          title="Aus Galerie wählen"
+        >
+          <ImageIcon size={20} style={{ color: '#fff' }} />
+        </button>
+
+        {/* Shutter */}
+        {!error && (
+          <button
+            className="camera-shutter-btn"
+            onClick={capturePhoto}
+            title="Foto aufnehmen"
+          >
+            <div className="camera-shutter-btn-inner" />
+          </button>
         )}
 
-        {/* Action Buttons Row */}
-        <div className="camera-actions-row">
-          {/* Left: Gallery Button Wrapper */}
-          <div className="camera-action-left">
-            <button
-              className="btn btn-secondary"
-              onClick={triggerFileInput}
-              style={{ 
-                minHeight: 'auto', 
-                width: '48px',
-                height: '48px',
-                padding: 0, 
-                borderRadius: '50%', 
-                background: 'rgba(255,255,255,0.12)', 
-                backdropFilter: 'blur(4px)',
-                WebkitBackdropFilter: 'blur(4px)',
-                border: '1px solid rgba(255,255,255,0.25)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              title="Aus Galerie wählen"
-            >
-              <ImageIcon size={20} style={{ color: '#fff' }} />
-            </button>
-          </div>
-
-          {/* Center: Shutter Button */}
-          <div className="camera-action-center">
-            {!error && (
-              <button
-                className="camera-shutter-btn"
-                onClick={capturePhoto}
-                title="Foto aufnehmen"
-              >
-                <div className="camera-shutter-btn-inner" />
-              </button>
+        {/* Done / Analyze */}
+        {selectedImages.length > 0 && (
+          <button
+            className="btn btn-primary camera-ctrl camera-ctrl-done"
+            onClick={turbo ? onTurboFinish : onAnalysisStart}
+            disabled={selectedImages.some(img => img.isCompressing)}
+            style={{
+              minHeight: 'auto',
+              padding: '0.65rem 1rem',
+              borderRadius: '99px',
+              fontSize: '0.85rem',
+              background: 'linear-gradient(135deg, var(--secondary) 0%, #d53f8c 100%)',
+              color: '#fff',
+              border: 'none',
+              fontWeight: 'bold',
+              boxShadow: '0 4px 12px var(--secondary-glow)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              whiteSpace: 'nowrap',
+              opacity: selectedImages.some(img => img.isCompressing) ? 0.6 : 1,
+              cursor: selectedImages.some(img => img.isCompressing) ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {turbo ? (
+              <>
+                <Rocket size={14} />
+                <span>Fertig</span>
+              </>
+            ) : (
+              <>
+                <Sparkles size={14} />
+                <span>Los!</span>
+              </>
             )}
-          </div>
-
-          {/* Right: Done/Analyze Button Wrapper */}
-          <div className="camera-action-right">
-            {selectedImages.length > 0 && (
-              <button
-                className="btn btn-primary"
-                onClick={turbo ? onTurboFinish : onAnalysisStart}
-                disabled={selectedImages.some(img => img.isCompressing)}
-                style={{
-                  minHeight: 'auto',
-                  padding: '0.65rem 1rem',
-                  borderRadius: '99px',
-                  fontSize: '0.85rem',
-                  background: 'linear-gradient(135deg, var(--secondary) 0%, #d53f8c 100%)',
-                  color: '#fff',
-                  border: 'none',
-                  fontWeight: 'bold',
-                  boxShadow: '0 4px 12px var(--secondary-glow)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.3rem',
-                  whiteSpace: 'nowrap',
-                  opacity: selectedImages.some(img => img.isCompressing) ? 0.6 : 1,
-                  cursor: selectedImages.some(img => img.isCompressing) ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {turbo ? (
-                  <>
-                    <Rocket size={14} />
-                    <span>Fertig ({selectedImages.length})</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={14} />
-                    <span>Los!</span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        </div>
+          </button>
+        )}
       </div>
 
       {/* Full-screen review: see all captured photos and remove any of them */}

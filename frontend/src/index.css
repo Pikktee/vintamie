@@ -558,62 +558,64 @@ select.form-control {
   z-index: 130;
 }
 
-/* Bottom controls overlay (Gallery, Shutter, Analyze) */
-.camera-overlay-bottom {
+/* ===== In-camera controls ===== */
+
+/* Gradient scrim behind the controls (portrait: bottom band, landscape: right band) */
+.camera-scrim {
   position: absolute;
-  bottom: 0;
   left: 0;
-  width: 100%;
-  background: linear-gradient(to top, rgba(14, 18, 26, 0.95) 0%, rgba(14, 18, 26, 0.5) 60%, rgba(14, 18, 26, 0) 100%);
-  padding: 1.5rem 1rem calc(20px + env(safe-area-inset-bottom, 0px)) 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  right: 0;
+  bottom: 0;
+  height: 260px;
+  background: linear-gradient(to top, rgba(14, 18, 26, 0.95) 0%, rgba(14, 18, 26, 0.45) 55%, rgba(14, 18, 26, 0) 100%);
+  pointer-events: none;
+  z-index: 124;
+}
+
+/* Primary controls: gallery / shutter / done.
+   A 3-track grid keeps the shutter locked in the centre track,
+   so it never shifts when the gallery/done buttons appear. */
+.camera-controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem calc(22px + env(safe-area-inset-bottom, 0px));
   z-index: 130;
 }
 
-.camera-actions-row {
-  display: flex;
-  width: 100%;
-  justify-content: space-between;
-  align-items: center;
-  max-width: 340px;
-}
+.camera-ctrl-gallery { justify-self: start; grid-column: 1; }
+.camera-ctrl-done { justify-self: end; grid-column: 3; }
 
-.camera-action-left {
-  width: 110px;
+/* Captured photos cluster: review chip + horizontal thumbnail strip */
+.camera-captured {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(120px + env(safe-area-inset-bottom, 0px));
   display: flex;
-  justify-content: flex-start;
+  flex-direction: column;
   align-items: center;
-}
-
-.camera-action-center {
-  width: 72px;
-  height: 72px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.camera-action-right {
-  width: 110px;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
+  gap: 0.6rem;
+  padding: 0 1rem;
+  z-index: 130;
 }
 
 .camera-thumbnails-container {
   display: flex;
   gap: 0.6rem;
   overflow-x: auto;
-  width: 100%;
-  justify-content: center;
+  max-width: 100%;
+  min-width: 0;
   padding: 0.25rem 0;
   max-height: 65px;
 }
 
-/* Shutter Button styling inside camera */
+/* Shutter */
 .camera-shutter-btn {
   width: 64px;
   height: 64px;
@@ -641,12 +643,9 @@ select.form-control {
   border: 2px solid rgba(0, 0, 0, 0.05);
 }
 
-/* Landscape Camera Layout changes */
+/* ===== Landscape: controls dock to a right-hand strip ===== */
 @media (orientation: landscape) {
-  .camera-container {
-    flex-direction: row;
-  }
-
+  /* flip + close move to the top-left */
   .camera-overlay-top {
     top: calc(15px + env(safe-area-inset-top, 0px));
     right: auto;
@@ -654,52 +653,52 @@ select.form-control {
     flex-direction: row;
   }
 
-  .camera-overlay-bottom {
-    top: 0;
-    bottom: 0;
-    right: 0;
+  /* TURBO pill centred at the top, clear of the top-left controls */
+  .camera-turbo-pill {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  /* scrim becomes a right-hand vertical band */
+  .camera-scrim {
     left: auto;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 150px;
+    height: 100%;
+    background: linear-gradient(to left, rgba(14, 18, 26, 0.95) 0%, rgba(14, 18, 26, 0.45) 60%, rgba(14, 18, 26, 0) 100%);
+  }
+
+  /* controls become a vertical strip; shutter stays locked to the middle row */
+  .camera-controls {
+    left: auto;
+    top: 0;
+    right: 0;
+    bottom: 0;
     width: 120px;
-    height: 100%;
-    background: linear-gradient(to left, rgba(14, 18, 26, 0.95) 0%, rgba(14, 18, 26, 0.5) 60%, rgba(14, 18, 26, 0) 100%);
-    padding: calc(15px + env(safe-area-inset-top, 0px)) 1rem calc(15px + env(safe-area-inset-bottom, 0px)) 1rem;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: 1.5rem;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto 1fr;
+    justify-items: center;
+    padding: 1.25rem 0;
   }
 
-  .camera-actions-row {
-    flex-direction: column;
-    height: 100%;
-    justify-content: space-between;
-    align-items: center;
-    max-width: none;
-    padding: 1.5rem 0;
-  }
+  .camera-ctrl-gallery { justify-self: center; grid-column: 1; grid-row: 1; }
+  .camera-ctrl-done { justify-self: center; grid-column: 1; grid-row: 3; }
 
-  .camera-action-left,
-  .camera-action-center,
-  .camera-action-right {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .camera-action-center {
-    height: 72px;
-  }
-
-  .camera-thumbnails-container {
-    position: absolute;
-    bottom: 1.25rem;
+  /* captured cluster docks to the bottom-left, clear of the strip */
+  .camera-captured {
     left: 1.25rem;
-    right: 120px;
+    right: 150px;
+    bottom: 1rem;
+    flex-direction: row;
+    align-items: center;
     justify-content: flex-start;
-    width: auto;
-    max-width: calc(100% - 140px);
-    z-index: 130;
-    pointer-events: auto;
+    gap: 0.6rem;
+    padding: 0;
   }
+
+  .camera-thumbnails-container { justify-content: flex-start; }
 }
 
 /* Two-column layout for Draft details on landscape/desktop */
@@ -3350,9 +3349,8 @@ select.form-control {
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  column-gap: 1rem;
-  row-gap: 1.15rem;
-  padding: 1.1rem 1.25rem calc(24px + env(safe-area-inset-bottom, 0px)) 1.25rem;
+  gap: 1.5rem;
+  padding: 1.25rem 1.25rem calc(28px + env(safe-area-inset-bottom, 0px)) 1.25rem;
   align-content: start;
 }
 
@@ -3446,9 +3444,8 @@ select.form-control {
   aspect-ratio: 3 / 4;
   border-radius: var(--radius-md);
   overflow: hidden;
-  border: 1px solid var(--glass-border);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   background: #11141d;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
 }
 
 .camera-review-cell img {
