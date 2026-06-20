@@ -190,31 +190,35 @@
 
   var FIELD_MAP = {
     vinted: {
+      // Verified against the live vinted.de "items/new" form (data-testid is the
+      // most stable handle; #id and name are equivalent fallbacks).
       title: {
-        selectors: ["input[name='title']", "input[id*='title']", "input[data-testid*='title']", "input[placeholder*='itel']"],
+        selectors: ["input[data-testid='title--input']", "#title", "input[name='title']", "input[placeholder*='verkaufst']"],
         labels: ["titel", "title"], tags: ["input"]
       },
       description: {
-        selectors: ["textarea[name='description']", "textarea[id*='desc']", "textarea[data-testid*='desc']", "textarea[placeholder*='eschreib']"],
+        selectors: ["textarea[data-testid='description--input']", "#description", "textarea[name='description']", "textarea[placeholder*='darüber']"],
         labels: ["beschreib", "description"], tags: ["textarea"]
       },
       price: {
-        selectors: ["input[name='price']", "input[id*='price']", "input[data-testid*='price']", "input[placeholder*='0,00']"],
+        selectors: ["input[data-testid='price-input--input']", "#price", "input[name='price']", "input[placeholder*='0,00']"],
         labels: ["preis", "price"], tags: ["input"]
       }
     },
     kleinanzeigen: {
+      // Verified against the live p-anzeige-aufgeben-schritt2 form. The form now
+      // uses #ad-* ids and name="priceAmount"/"zipCode"; the old #postad-*/#pstad-*
+      // ids are kept only as trailing fallbacks for older layouts.
       title: {
-        selectors: ["#postad-title", "input[name='title']", "input[id*='title']"],
+        selectors: ["#ad-title", "input[name='title']", "#postad-title", "input[id*='title']"],
         labels: ["titel", "überschrift", "uberschrift"], tags: ["input"]
       },
       description: {
-        // Kleinanzeigen historically uses the (correct, not a typo) id #pstad-descrptn.
-        selectors: ["#pstad-descrptn", "#postad-description", "textarea[name='description']", "textarea[id*='descr']"],
+        selectors: ["#ad-description", "textarea[name='description']", "#pstad-descrptn", "textarea[id*='descr']"],
         labels: ["beschreib"], tags: ["textarea"]
       },
       price: {
-        selectors: ["#pstad-price", "#postad-price", "input[name='price']", "input[id*='price']"],
+        selectors: ["#ad-price-amount", "input[name='priceAmount']", "#pstad-price", "input[id*='price']"],
         labels: ["preis"], tags: ["input"]
       }
     }
@@ -426,6 +430,15 @@
     return filledLabels;
   }
 
+  // Make sure the listing is an offer ("Ich biete"), not a want ad ("Ich suche").
+  function selectKleinanzeigenOffer() {
+    var offer = document.querySelector("#ad-type-OFFER") ||
+                document.querySelector("input[name='adType'][value='OFFER']");
+    if (offer && !offer.checked) {
+      offer.click();
+    }
+  }
+
   function setKleinanzeigenFixedPrice() {
     var radios = document.querySelectorAll("input[name='priceType']");
     for (var i = 0; i < radios.length; i++) {
@@ -570,10 +583,11 @@
     if (priceEl) priceEl.__vintamieKnown = true;
 
     if (platform === "kleinanzeigen") {
+      selectKleinanzeigenOffer();
       setKleinanzeigenFixedPrice();
       if (options.userZip) {
         var zipEl = firstBySelectors([
-          "#postad-postcode", "input[name='postcode']", "input[id*='postcode']", "input[placeholder*='PLZ']"
+          "#ad-zip-code", "input[name='zipCode']", "#postad-postcode", "input[name='postcode']", "input[placeholder*='PLZ']"
         ]);
         if (zipEl) {
           fillField(zipEl, options.userZip);
