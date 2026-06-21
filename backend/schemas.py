@@ -92,6 +92,19 @@ class DraftRegenerateRequest(BaseModel):
     field: str
 
 
+# Autofill telemetry (anonymous structural outcome — NO listing content)
+class AutofillEventCreate(BaseModel):
+    platform: Optional[str] = None
+    phase: Optional[str] = None
+    engine_version: Optional[str] = None
+    title_found: Optional[bool] = None
+    description_found: Optional[bool] = None
+    price_found: Optional[bool] = None
+    category_ok: Optional[bool] = None
+    photos: Optional[int] = None
+    attributes_count: Optional[int] = None
+
+
 # Bug Report Schemas
 class BugReportCreate(BaseModel):
     title: str

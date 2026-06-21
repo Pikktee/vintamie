@@ -36,7 +36,7 @@
   // and in the extension it is a persistent content script — never redefine.
   if (window.__vintamie && window.__vintamie.__loaded) return;
 
-  var VERSION = "2.4.6";
+  var VERSION = "2.4.7";
 
   // ----------------------------------------------------------------------------
   // Low level helpers
@@ -714,6 +714,8 @@
     var map = FIELD_MAP[platform] || FIELD_MAP.vinted;
     var filled = [];
     var manual = [];
+    var categoryOk = null;   // null = not applicable here, bool = picker result
+    var attrCount = 0;
 
     // Poll for the title field — both forms render asynchronously.
     var titleEl = null;
@@ -755,8 +757,9 @@
       await sleep(2000);
       attrFilled = attrFilled.concat(fillAttributes(draft));
       // De-dup attribute labels for the report.
-      attrFilled.filter(function (v, idx, arr) { return arr.indexOf(v) === idx; })
-                .forEach(function (lbl) { filled.push(lbl); });
+      var dedupAttr = attrFilled.filter(function (v, idx, arr) { return arr.indexOf(v) === idx; });
+      attrCount = dedupAttr.length;
+      dedupAttr.forEach(function (lbl) { filled.push(lbl); });
     }
 
     // Vinted: drive the category picker automatically (drilled by catalog id /
@@ -765,6 +768,7 @@
       var vintedCatOk = false;
       if (draft.vinted_path || draft.vintedPath) {
         try { vintedCatOk = await selectVintedCategory(draft); } catch (e) { vintedCatOk = false; }
+        categoryOk = vintedCatOk;
       }
       if (vintedCatOk) filled.push("Kategorie");
       else manual.push("Kategorie");
@@ -782,7 +786,28 @@
       photos = await uploadPhotosDataTransfer(urls);
     }
 
-    return { filled: filled, manual: manual, photos: photos };
+    return {
+      filled: filled, manual: manual, photos: photos,
+      found: { title: !!titleEl, description: !!descEl, price: !!priceEl },
+      categoryOk: categoryOk, attrCount: attrCount
+    };
+  }
+
+  // ----------------------------------------------------------------------------
+  // Telemetry — anonymous structural outcome (NO listing content) so the backend
+  // can automatically detect when Vinted/Kleinanzeigen change their forms.
+  // ----------------------------------------------------------------------------
+
+  function sendTelemetry(payload, options) {
+    try {
+      if (!options || !options.backendUrl) return;
+      var headers = { "Content-Type": "application/json" };
+      if (options.token) headers["Authorization"] = "Bearer " + options.token;
+      payload.engine_version = VERSION;
+      fetch(options.backendUrl + "/api/telemetry/autofill", {
+        method: "POST", headers: headers, body: JSON.stringify(payload), keepalive: true
+      }).catch(function () {});
+    } catch (e) { /* telemetry is best-effort, never block autofill */ }
   }
 
   // ----------------------------------------------------------------------------
@@ -813,6 +838,7 @@
       if (showUi) showOverlay(result0, autoSubmit);
       var catOk = await autoSelectCategory(draft);
       console.log("Vintamie: Kategorie-Auswahl (KA) ->", catOk ? "Weiter geklickt" : "fehlgeschlagen/manuell", "path=", draft && draft.category_path);
+      sendTelemetry({ platform: platform, phase: phase, category_ok: !!catOk }, options);
       return result0;
     }
 
@@ -821,6 +847,15 @@
       platform: platform, phase: phase,
       filled: r.filled, manual: r.manual, photos: r.photos, submitted: false
     };
+
+    sendTelemetry({
+      platform: platform, phase: phase,
+      title_found: r.found ? r.found.title : null,
+      description_found: r.found ? r.found.description : null,
+      price_found: r.found ? r.found.price : null,
+      category_ok: r.categoryOk,
+      photos: r.photos, attributes_count: r.attrCount
+    }, options);
 
     if (showUi) showOverlay(result, autoSubmit);
 

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, File, UploadFile, status, Form
+from fastapi import FastAPI, Depends, HTTPException, File, UploadFile, status, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -7,6 +7,7 @@ import os
 import shutil
 import uuid
 import json
+from datetime import datetime, timedelta
 from typing import List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -14,6 +15,7 @@ import models
 import schemas
 from database import engine, get_db
 from services.gemini_service import analyze_item_image, group_images_by_offer
+from services.notifications import send_email
 from auth_utils import verify_password, get_password_hash, create_access_token, decode_access_token
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -89,7 +91,7 @@ def run_migrations():
 
 run_migrations()
 
-app = FastAPI(title="Vintamie API", version="2.4.6")
+app = FastAPI(title="Vintamie API", version="2.4.7")
 
 UPLOAD_DIR = "/data/uploads" if os.path.isdir("/data") else "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -777,6 +779,95 @@ async def upload_apk(
             pass
             
     return {"status": "success", "message": f"APK-Datei erfolgreich aktualisiert (gespeichert unter {APK_DIR})."}
+
+# --- AUTOFILL TELEMETRY & AUTOMATIC HEALTH MONITORING ---
+
+# Tuning for the anomaly detector. A signal fires when a normally-reliable field
+# fails in too large a fraction of the most recent autofill runs on a platform.
+_TELEMETRY_WINDOW = 15       # most recent events per platform to look at
+_TELEMETRY_MIN_EVENTS = 6    # need at least this many relevant data points
+_TELEMETRY_COOLDOWN_H = 24   # don't re-alert the same signal within 24h
+# (field label, AutofillEvent attribute, miss-rate threshold to alert)
+_TELEMETRY_SIGNALS = [
+    ("Titel", "title_found", 0.6),
+    ("Beschreibung", "description_found", 0.6),
+    ("Preis", "price_found", 0.6),
+    ("Kategorie", "category_ok", 0.9),  # category can legitimately fall to manual -> only alert on near-total failure
+]
+
+
+def check_autofill_anomaly(platform: str):
+    """Runs in the background after a telemetry event. Detects when a field starts
+    failing en masse (site likely changed) and e-mails the maintainer, once per
+    signal per cooldown window. Never raises into the request."""
+    if not platform:
+        return
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        recent = (
+            db.query(models.AutofillEvent)
+            .filter(models.AutofillEvent.platform == platform)
+            .order_by(models.AutofillEvent.created_at.desc())
+            .limit(_TELEMETRY_WINDOW)
+            .all()
+        )
+        for label, attr, threshold in _TELEMETRY_SIGNALS:
+            vals = [getattr(e, attr) for e in recent if getattr(e, attr) is not None]
+            if len(vals) < _TELEMETRY_MIN_EVENTS:
+                continue
+            miss_rate = sum(1 for v in vals if v is False) / len(vals)
+            if miss_rate < threshold:
+                continue
+            signal = f"{platform}:{attr}"
+            last = (
+                db.query(models.AlertLog)
+                .filter(models.AlertLog.signal == signal)
+                .order_by(models.AlertLog.created_at.desc())
+                .first()
+            )
+            if last and (datetime.utcnow() - last.created_at) < timedelta(hours=_TELEMETRY_COOLDOWN_H):
+                continue
+            db.add(models.AlertLog(signal=signal, detail=f"miss={miss_rate:.0%} n={len(vals)}"))
+            db.commit()
+            versions = ", ".join(sorted({e.engine_version or "?" for e in recent}))
+            send_email(
+                f"⚠️ Vintamie Autofill: '{label}' bricht auf {platform}",
+                (
+                    f"Das Feld/die Aktion '{label}' ist in {miss_rate:.0%} der letzten {len(vals)} "
+                    f"Autofill-Versuche auf {platform} fehlgeschlagen.\n\n"
+                    f"Sehr wahrscheinlich hat {platform} sein Formular bzw. seine Selektoren geändert.\n"
+                    f"Bitte die Engine-Selektoren in shared/autofill-engine.js prüfen "
+                    f"(FIELD_MAP bzw. die Kategorie-Navigation) und ggf. neu ernten/anpassen.\n\n"
+                    f"Engine-Versionen im Zeitfenster: {versions}\n"
+                    f"Diese Warnung wird frühestens in {_TELEMETRY_COOLDOWN_H}h erneut gesendet."
+                ),
+            )
+    except Exception as e:
+        print(f"[telemetry] Anomalie-Check fehlgeschlagen: {e}", flush=True)
+    finally:
+        db.close()
+
+
+@app.post("/api/telemetry/autofill", status_code=status.HTTP_202_ACCEPTED)
+def telemetry_autofill(
+    event: schemas.AutofillEventCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Records one anonymous autofill outcome (no listing content) and triggers a
+    background anomaly check. Best-effort: telemetry never blocks the user."""
+    try:
+        ev = models.AutofillEvent(user_id=current_user.id, **event.dict())
+        db.add(ev)
+        db.commit()
+        background_tasks.add_task(check_autofill_anomaly, event.platform)
+    except Exception as e:
+        db.rollback()
+        print(f"[telemetry] Speichern fehlgeschlagen: {e}", flush=True)
+    return {"ok": True}
+
 
 # --- BUG REPORT ENDPOINTS (SECURED) ---
 

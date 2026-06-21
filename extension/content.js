@@ -335,9 +335,14 @@ async function autofillForm(draft, autoSubmit) {
   }
   const settings = window.vintamieUserSettings || {};
   const submit = (typeof autoSubmit === "boolean") ? autoSubmit : !!settings.auto_submit;
+  // Token for the engine's anonymous autofill telemetry (auto health monitoring).
+  const token = await new Promise((resolve) =>
+    chrome.storage.local.get(["vintamie_token"], (d) => resolve((d && d.vintamie_token) || ""))
+  );
   try {
     await window.__vintamie.autofill(draft, {
       backendUrl: backendUrl,
+      token: token,
       userZip: settings.default_zip || "",
       userCity: settings.default_city || "",
       autoSubmit: submit,

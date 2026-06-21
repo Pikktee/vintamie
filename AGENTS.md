@@ -27,6 +27,8 @@ Autofilling Vinted/Kleinanzeigen forms is driven by a **single shared engine**, 
 *   The AI resolves the Vinted category in a **separate, graceful text call** (`pick_vinted_category` in `gemini_service`) so quota/parse failures just leave it manual without breaking the draft (Kleinanzeigen still works).
 *   `Draft.vinted_category` (a real column, additive migration) stores the breadcrumb; `Draft.vinted_path` is a derived `@property` mapping it to the catalog-id path. Both `vinted_category` and `vinted_path` are exposed in `DraftResponse`. Brand/size/condition pickers are still left manual.
 
+**Automatic health monitoring (telemetry, V2.4.7):** Because Vinted/Kleinanzeigen change their forms occasionally, the engine reports an **anonymous structural outcome** after each autofill (NO listing content — only which core fields resolved + category ✓/✗) to `POST /api/telemetry/autofill` (`models.AutofillEvent`). A background check (`check_autofill_anomaly` in `main.py`) flags when a normally-reliable field/action fails across the recent window and **e-mails the maintainer** (`services/notifications.py`, stdlib smtplib, `models.AlertLog` enforces a 24h per-signal cooldown). Active synthetic crawling of the live forms is deliberately avoided — it triggers the same bot/fraud detection that once IP-banned us. Required Railway env vars for the e-mail alert (alerts are only logged if unset): `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD`, `ALERT_EMAIL_TO`, optional `ALERT_EMAIL_FROM`.
+
 ---
 
 ## Project Structure

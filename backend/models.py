@@ -97,6 +97,36 @@ class Draft(Base):
         except Exception:
             return None
 
+class AutofillEvent(Base):
+    """Anonymous structural outcome of one autofill run (NO listing content).
+    Powers automatic detection of Vinted/Kleinanzeigen form changes."""
+    __tablename__ = "autofill_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    platform = Column(String, nullable=True, index=True)   # "vinted" | "kleinanzeigen"
+    phase = Column(String, nullable=True)                  # "form" | "category"
+    engine_version = Column(String, nullable=True)
+    # Per-field "selector resolved?" flags (None = not applicable for this phase).
+    title_found = Column(Boolean, nullable=True)
+    description_found = Column(Boolean, nullable=True)
+    price_found = Column(Boolean, nullable=True)
+    category_ok = Column(Boolean, nullable=True)
+    photos = Column(Integer, nullable=True)
+    attributes_count = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class AlertLog(Base):
+    """Records each fired anomaly alert so we can enforce a per-signal cooldown."""
+    __tablename__ = "alert_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    signal = Column(String, nullable=False, index=True)    # e.g. "vinted:title"
+    detail = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class BugReport(Base):
     __tablename__ = "bug_reports"
 
