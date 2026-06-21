@@ -36,7 +36,7 @@
   // and in the extension it is a persistent content script — never redefine.
   if (window.__vintamie && window.__vintamie.__loaded) return;
 
-  var VERSION = "2.4.5";
+  var VERSION = "2.4.6";
 
   // ----------------------------------------------------------------------------
   // Low level helpers
@@ -517,15 +517,33 @@
     return (el.closest && el.closest("[role='button'],button,li,a,div[tabindex]")) || el.parentElement || el;
   }
 
+  // The picker's current-level title (the "← Computer & Zubehör" header). We must
+  // never match this when looking for the NEXT option, because norm() collapses
+  // "&" and "-" to spaces, so e.g. "Computer & Zubehör" (header) and
+  // "Computer-Zubehör" (option) would otherwise look identical.
+  function vintedHeaderTitle(container) {
+    var h = container.querySelector("[data-testid='catalog-navigation--body'], .web_ui__Navigation__body");
+    return h ? norm(h.textContent) : "";
+  }
+
   function vintedFindRowByName(container, name) {
     var target = norm(name);
     if (!target) return null;
-    var nodes = container.querySelectorAll(
-      ".web_ui__Cell__title, .web_ui__Cell__heading, li.web_ui__Item__item, [role='button']"
-    );
-    for (var i = 0; i < nodes.length; i++) {
-      if (!isInteractable(nodes[i])) continue;
-      if (norm(nodes[i].textContent) === target) return nodes[i];
+    // Match ONLY real option rows — exclude the navigation header / back button.
+    var rows = container.querySelectorAll("li.web_ui__Item__item");
+    var i, titleEl;
+    for (i = 0; i < rows.length; i++) {
+      if (!isInteractable(rows[i])) continue;
+      if (rows[i].closest("[data-testid^='catalog-navigation']")) continue;
+      titleEl = rows[i].querySelector(".web_ui__Cell__title") || rows[i];
+      if (norm(titleEl.textContent) === target) return rows[i];
+    }
+    // Fallback for layout changes: cell titles outside the navigation header.
+    var titles = container.querySelectorAll(".web_ui__Cell__title");
+    for (i = 0; i < titles.length; i++) {
+      if (!isInteractable(titles[i])) continue;
+      if (titles[i].closest("[data-testid^='catalog-navigation']")) continue;
+      if (norm(titles[i].textContent) === target) return titles[i];
     }
     return null;
   }
@@ -565,13 +583,24 @@
     }
     if (!vintedPickerContainer()) return false;
 
-    // Drill each level (ID first, name fallback), waiting for the next to render.
+    // Drill each level (ID first, name fallback). vintedClickLevel polls until the
+    // next level renders; a short settle after each click avoids racing against the
+    // previous level still being on screen.
     for (var i = 0; i < ids.length; i++) {
       var ok = await vintedClickLevel(ids[i], names[i] || "");
+      console.log("Vintamie Vinted: Ebene " + i + " '" + (names[i] || "") + "' (id " + ids[i] + ") -> " + (ok ? "geklickt" : "NICHT gefunden"));
       if (!ok) return false;
-      await sleep(500);
+      await sleep(450);
     }
-    return true;
+
+    // Honest success: only report "Kategorie ✓" if the picker actually closed,
+    // i.e. a leaf was selected and the category is set.
+    for (var v = 0; v < 12; v++) {
+      if (!vintedPickerContainer()) return true;
+      await sleep(300);
+    }
+    console.warn("Vintamie Vinted: Picker blieb offen — Blatt evtl. nicht ausgewählt");
+    return false;
   }
 
   // ----------------------------------------------------------------------------
