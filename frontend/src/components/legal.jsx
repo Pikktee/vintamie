@@ -9,7 +9,55 @@ const h3 = { fontSize: '1rem', color: '#fff', marginBottom: '0.5rem', fontFamily
 export const LEGAL_TITLES = {
   datenschutz: 'Datenschutzerklärung',
   impressum: 'Impressum',
+  'konto-loeschen': 'Konto und Daten löschen',
 };
+
+const ol = { margin: '0 0 1.5rem 0', padding: '0 0 0 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' };
+
+export function KontoLoeschenContent() {
+  return (
+    <div>
+      <p style={{ marginBottom: '1.5rem' }}>
+        Diese Seite erklärt, wie du dein <strong>Velosia</strong>-Konto und alle zugehörigen
+        Daten löschen kannst. Velosia (Anbieter: Henrik Heil) automatisiert das Erstellen von
+        Second-Hand-Anzeigen für Vinted und Kleinanzeigen.
+      </p>
+
+      <h3 style={h3}>Variante 1: Direkt in der App (sofort)</h3>
+      <ol style={ol}>
+        <li>In der Velosia-App anmelden.</li>
+        <li>Oben rechts die <strong>Einstellungen</strong> öffnen.</li>
+        <li>Ganz unten auf <strong>„Account löschen"</strong> tippen.</li>
+        <li>Mit <strong>„Ja, löschen"</strong> bestätigen.</li>
+      </ol>
+      <p style={{ marginBottom: '1.5rem' }}>
+        Dein Konto und alle Daten werden dabei <strong>sofort und unwiderruflich</strong> gelöscht.
+      </p>
+
+      <h3 style={h3}>Variante 2: Per E-Mail</h3>
+      <p style={{ marginBottom: '1.5rem' }}>
+        Falls du keinen Zugriff mehr auf die App hast, schreib uns an{' '}
+        <strong>mail@henrikheil.net</strong> von der betroffenen E-Mail-Adresse aus. Wir löschen
+        dein Konto und alle Daten dann innerhalb von <strong>30 Tagen</strong>.
+      </p>
+
+      <h3 style={h3}>Welche Daten werden gelöscht?</h3>
+      <p style={{ marginBottom: '1.5rem' }}>
+        Vollständig und endgültig gelöscht werden: deine <strong>E-Mail-Adresse</strong>, dein
+        Passwort bzw. die <strong>Google-Verknüpfung</strong>, alle erstellten{' '}
+        <strong>Anzeigen/Entwürfe</strong> sowie alle von dir <strong>hochgeladenen Fotos</strong>.
+      </p>
+
+      <h3 style={h3}>Werden Daten aufbewahrt?</h3>
+      <p>
+        Nach der Löschung bewahren wir <strong>keine</strong> personenbezogenen Konto- oder
+        Anzeigendaten auf. Velosia ist kostenlos – es fallen keine Zahlungs- oder Rechnungsdaten an.
+        Lediglich von dir freiwillig gesendete Fehlerberichte können in <strong>anonymisierter
+        Form</strong> (ohne Bezug zu deinem Konto) zur Fehleranalyse erhalten bleiben.
+      </p>
+    </div>
+  );
+}
 
 export function ImpressumContent() {
   return (

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { ImpressumContent, DatenschutzContent, LEGAL_TITLES } from './legal';
+import { ImpressumContent, DatenschutzContent, KontoLoeschenContent, LEGAL_TITLES } from './legal';
 
 // Standalone legal page for #/datenschutz and #/impressum — gives Google Play a
 // stable, directly linkable privacy-policy URL (separate from the in-app modal).
@@ -29,7 +29,9 @@ export default function LegalPage({ doc }) {
         lineHeight: '1.65',
         color: 'var(--text-secondary)'
       }}>
-        {doc === 'impressum' ? <ImpressumContent /> : <DatenschutzContent />}
+        {doc === 'impressum' ? <ImpressumContent />
+          : doc === 'konto-loeschen' ? <KontoLoeschenContent />
+          : <DatenschutzContent />}
       </div>
 
       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '1.5rem' }}>

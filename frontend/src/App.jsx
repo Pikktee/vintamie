@@ -128,7 +128,7 @@ export default function App() {
           window.location.hash = '#/login';
         }
       } else {
-        const guestRoutes = ['#/', '#/login', '#/testen', '#/datenschutz', '#/impressum'];
+        const guestRoutes = ['#/', '#/login', '#/testen', '#/datenschutz', '#/impressum', '#/konto-loeschen'];
         if (!guestRoutes.includes(route)) {
           window.location.hash = '#/';
         }
@@ -464,6 +464,8 @@ export default function App() {
             <LegalPage doc="datenschutz" />
           ) : route === '#/impressum' ? (
             <LegalPage doc="impressum" />
+          ) : route === '#/konto-loeschen' ? (
+            <LegalPage doc="konto-loeschen" />
           ) : (
             isAndroid ? <Login onLoginSuccess={handleLoginSuccess} /> : <LandingPage />
           )}
