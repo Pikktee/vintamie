@@ -56,6 +56,26 @@ export const registerUser = async (email, password) => {
   return response.json();
 };
 
+// Public tester-waitlist sign-up (no auth required).
+export const joinWaitlist = async (email, note) => {
+  const response = await fetch(`${API_BASE_URL}/api/waitlist`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, note: note || null }),
+  });
+
+  if (!response.ok) {
+    let detail = 'Anmeldung fehlgeschlagen.';
+    try {
+      const errorData = await response.json();
+      if (errorData.detail) detail = typeof errorData.detail === 'string' ? errorData.detail : detail;
+    } catch (_) { /* ignore non-JSON error bodies */ }
+    throw new Error(detail);
+  }
+
+  return response.json();
+};
+
 export const loginUser = async (email, password) => {
   const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
     method: 'POST',

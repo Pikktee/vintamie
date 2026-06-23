@@ -8,6 +8,7 @@ import AnalysisSpecs from './components/AnalysisSpecs';
 import Login from './components/Login';
 import Settings from './components/Settings';
 import LandingPage from './components/LandingPage';
+import TesterPage from './components/TesterPage';
 import BugReportModal from './components/BugReportModal';
 import IssueManagement from './components/IssueManagement';
 import { getDrafts, deleteDraft, isAuthenticated, setAuthToken, getMe, uploadAndAnalyze, uploadTurbo, refreshAllListings } from './utils/api';
@@ -126,7 +127,7 @@ export default function App() {
           window.location.hash = '#/login';
         }
       } else {
-        if (route !== '#/' && route !== '#/login') {
+        if (route !== '#/' && route !== '#/login' && route !== '#/testen') {
           window.location.hash = '#/';
         }
       }
@@ -455,6 +456,8 @@ export default function App() {
         <div className="container" style={{ padding: isAndroid ? '0' : '2rem 1.25rem' }}>
           {route === '#/login' ? (
             <Login onLoginSuccess={handleLoginSuccess} />
+          ) : route === '#/testen' ? (
+            <TesterPage />
           ) : (
             isAndroid ? <Login onLoginSuccess={handleLoginSuccess} /> : <LandingPage />
           )}

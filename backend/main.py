@@ -114,7 +114,7 @@ def run_migrations():
 
 run_migrations()
 
-app = FastAPI(title="Velosia API", version="2.6.1")
+app = FastAPI(title="Velosia API", version="2.6.2")
 
 UPLOAD_DIR = "/data/uploads" if os.path.isdir("/data") else "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -1062,6 +1062,65 @@ def create_bug_report(
     db.commit()
     db.refresh(db_bug)
     return db_bug
+
+
+# --- Tester waitlist (public sign-up from the landing page) -------------------
+@app.post("/api/waitlist", response_model=schemas.WaitlistResponse, status_code=status.HTTP_201_CREATED)
+def join_waitlist(entry_in: schemas.WaitlistCreate, db: Session = Depends(get_db)):
+    """Public endpoint — anyone can sign up to be considered as a Play Store
+    tester. Idempotent: re-submitting the same e-mail returns the existing entry
+    instead of erroring. Notifies the maintainer by e-mail when configured."""
+    email = entry_in.email.strip().lower()
+    existing = db.query(models.WaitlistEntry).filter(models.WaitlistEntry.email == email).first()
+    if existing:
+        return existing
+
+    db_entry = models.WaitlistEntry(
+        email=email,
+        note=(entry_in.note or None),
+        source="landing",
+    )
+    db.add(db_entry)
+    try:
+        db.commit()
+        db.refresh(db_entry)
+    except Exception as e:
+        # Race on the unique index: fetch and return the now-existing row.
+        db.rollback()
+        existing = db.query(models.WaitlistEntry).filter(models.WaitlistEntry.email == email).first()
+        if existing:
+            return existing
+        raise HTTPException(status_code=500, detail="Could not save waitlist entry.")
+
+    try:
+        count = db.query(models.WaitlistEntry).count()
+        send_email(
+            subject=f"Velosia: neue Tester-Anmeldung ({email})",
+            body=(
+                f"Neue Eintragung in die Tester-Warteliste:\n\n"
+                f"E-Mail: {email}\n"
+                f"Notiz: {entry_in.note or '-'}\n\n"
+                f"Warteliste umfasst jetzt {count} Eintrag/Einträge.\n"
+                f"Trage die E-Mail in der Play Console (Interner Test → Tester) ein, "
+                f"damit die Person den Opt-in-Link nutzen kann."
+            ),
+        )
+    except Exception as e:
+        print(f"Waitlist notification e-mail failed (non-fatal): {e}", flush=True)
+
+    return db_entry
+
+
+@app.get("/api/waitlist", response_model=List[schemas.WaitlistResponse])
+def list_waitlist(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Admin-only: view all tester sign-ups."""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return db.query(models.WaitlistEntry).order_by(models.WaitlistEntry.created_at.desc()).all()
+
 
 @app.get("/api/bugs", response_model=List[schemas.BugReportResponse])
 def get_bug_reports(

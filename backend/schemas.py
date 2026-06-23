@@ -143,3 +143,18 @@ class BugReportResponse(BaseModel):
         from_attributes = True
 
 
+# Tester waitlist (public landing-page sign-up)
+class WaitlistCreate(BaseModel):
+    email: EmailStr
+    note: Optional[str] = None
+
+class WaitlistResponse(BaseModel):
+    id: int
+    email: str
+    note: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+

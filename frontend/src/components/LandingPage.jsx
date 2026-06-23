@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Download, Sparkles, Camera, FolderHeart, ArrowRight, Globe, X, Puzzle, Smartphone } from 'lucide-react';
-import { API_BASE_URL } from '../utils/api';
+import { Sparkles, Camera, FolderHeart, ArrowRight, Globe, X, Puzzle, Mail, Check, Rocket, FlaskConical, Loader2 } from 'lucide-react';
+import { joinWaitlist } from '../utils/api';
 
 // Small inline-code chip used inside the install guides.
 const Code = ({ children }) => (
@@ -24,17 +24,34 @@ const guideHintStyle = { fontSize: '0.8rem', color: 'var(--text-muted)', borderL
 const DOC_TITLES = {
   impressum: 'Impressum',
   datenschutz: 'Datenschutzerklärung',
-  'install-android': 'Android-App installieren',
   'install-chrome': 'Chrome-Erweiterung installieren'
 };
 
 export default function LandingPage() {
   const [activeDoc, setActiveDoc] = useState(null); // see DOC_TITLES keys, or null
-  const apkDownloadUrl = `${API_BASE_URL}/api/app/latest-apk`;
   const extensionDownloadUrl = '/velosia-extension.zip'; // static asset served by the frontend
+
+  // Tester-waitlist form state
+  const [email, setEmail] = useState('');
+  const [wlState, setWlState] = useState('idle'); // idle | submitting | done | error
+  const [wlError, setWlError] = useState('');
 
   const handleOpenWebApp = () => {
     window.location.hash = '#/login';
+  };
+
+  const handleWaitlistSubmit = async (e) => {
+    e.preventDefault();
+    if (wlState === 'submitting') return;
+    setWlState('submitting');
+    setWlError('');
+    try {
+      await joinWaitlist(email.trim());
+      setWlState('done');
+    } catch (err) {
+      setWlError(err.message || 'Anmeldung fehlgeschlagen. Bitte später erneut versuchen.');
+      setWlState('error');
+    }
   };
 
   return (
@@ -135,31 +152,112 @@ export default function LandingPage() {
           width: '100%',
           padding: '0 1rem'
         }}>
-          {/* APK Download Button */}
-          <a 
-            href={apkDownloadUrl}
-            download
-            className="btn btn-primary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.75rem',
-              padding: '0.9rem 1.75rem',
-              fontSize: '0.95rem',
-              fontWeight: '700',
-              textDecoration: 'none',
-              boxShadow: '0 8px 25px rgba(9, 176, 183, 0.35)',
+          {/* "Coming soon to Play Store" badge */}
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.4rem 0.9rem',
+            borderRadius: '999px',
+            background: 'rgba(9, 176, 183, 0.08)',
+            border: '1px solid rgba(9, 176, 183, 0.2)',
+            fontSize: '0.78rem',
+            fontWeight: '600',
+            color: 'var(--primary)',
+            marginBottom: '0.4rem'
+          }}>
+            <Rocket size={13} />
+            <span>Bald im Google Play Store</span>
+          </div>
+
+          {/* Tester waitlist — primary CTA */}
+          {wlState === 'done' ? (
+            <div className="glass-panel" style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.65rem',
               width: '100%',
-              maxWidth: '290px',
-              transition: 'transform 0.15s ease'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              maxWidth: '340px',
+              padding: '0.9rem 1.1rem',
+              borderRadius: 'var(--radius-md, 12px)',
+              border: '1px solid rgba(9, 176, 183, 0.25)',
+              textAlign: 'left'
+            }}>
+              <Check size={18} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: '0.1rem' }} />
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.45' }}>
+                Du stehst auf der Warteliste! Wir melden uns per E-Mail, sobald ein Testplatz für dich frei ist.
+              </span>
+            </div>
+          ) : (
+            <form onSubmit={handleWaitlistSubmit} style={{ width: '100%', maxWidth: '340px', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); if (wlState === 'error') setWlState('idle'); }}
+                placeholder="Deine E-Mail-Adresse"
+                aria-label="E-Mail-Adresse für die Tester-Warteliste"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  padding: '0.8rem 1rem',
+                  borderRadius: 'var(--radius-md, 12px)',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid var(--glass-border)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.9rem',
+                  outline: 'none'
+                }}
+              />
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={wlState === 'submitting'}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.6rem',
+                  padding: '0.85rem 1.5rem',
+                  fontSize: '0.95rem',
+                  fontWeight: '700',
+                  boxShadow: '0 8px 25px rgba(9, 176, 183, 0.35)',
+                  width: '100%',
+                  cursor: wlState === 'submitting' ? 'default' : 'pointer',
+                  opacity: wlState === 'submitting' ? 0.7 : 1
+                }}
+              >
+                {wlState === 'submitting'
+                  ? <Loader2 size={16} className="spin" />
+                  : <Mail size={16} />}
+                <span>{wlState === 'submitting' ? 'Wird gesendet…' : 'Auf die Tester-Warteliste'}</span>
+              </button>
+              {wlState === 'error' && (
+                <span style={{ fontSize: '0.8rem', color: 'var(--danger, #ef4444)', textAlign: 'center' }}>
+                  {wlError}
+                </span>
+              )}
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '1.4' }}>
+                Trag dich ein – wir laden dich ein, sobald ein Testplatz frei wird.
+              </span>
+            </form>
+          )}
+
+          {/* Tester link → process explainer subpage */}
+          <button
+            onClick={() => window.location.hash = '#/testen'}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', textDecoration: 'underline', padding: '0.2rem', fontSize: '0.82rem', marginTop: '0.1rem' }}
           >
-            <Download size={16} />
-            <span>App für Android laden</span>
-          </a>
+            <FlaskConical size={14} /> Schon eingeladen? So testest du Velosia
+            <ArrowRight size={12} />
+          </button>
+
+          {/* Desktop alternatives — de-emphasised */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', maxWidth: '340px', margin: '0.6rem 0 0.2rem' }}>
+            <div style={{ flex: 1, height: '1px', background: 'var(--glass-border)' }}></div>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>oder am Desktop</span>
+            <div style={{ flex: 1, height: '1px', background: 'var(--glass-border)' }}></div>
+          </div>
 
           {/* Chrome Extension Download Button */}
           <a
@@ -171,11 +269,11 @@ export default function LandingPage() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '0.6rem',
-              padding: '0.8rem 1.5rem',
+              padding: '0.75rem 1.5rem',
               background: 'rgba(255, 255, 255, 0.02)',
               border: '1px solid var(--glass-border)',
               color: 'var(--text-primary)',
-              fontSize: '0.9rem',
+              fontSize: '0.88rem',
               fontWeight: '600',
               textDecoration: 'none',
               cursor: 'pointer',
@@ -205,11 +303,11 @@ export default function LandingPage() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '0.5rem',
-              padding: '0.8rem 1.5rem',
+              padding: '0.75rem 1.5rem',
               background: 'rgba(255, 255, 255, 0.02)',
               border: '1px solid var(--glass-border)',
               color: 'var(--text-primary)',
-              fontSize: '0.9rem',
+              fontSize: '0.88rem',
               fontWeight: '600',
               cursor: 'pointer',
               width: '100%',
@@ -230,25 +328,18 @@ export default function LandingPage() {
             <ArrowRight size={13} style={{ marginLeft: '0.15rem' }} />
           </button>
 
-          {/* Install guide links */}
+          {/* Install guide link (Chrome only) */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexWrap: 'wrap',
             gap: '0.35rem 0.75rem',
-            marginTop: '0.4rem',
+            marginTop: '0.3rem',
             fontSize: '0.82rem',
             color: 'var(--text-muted)'
           }}>
             <span>Installationshilfe:</span>
-            <button
-              onClick={() => setActiveDoc('install-android')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', textDecoration: 'underline', padding: '0.1rem', fontSize: 'inherit' }}
-            >
-              <Smartphone size={13} /> Android-App
-            </button>
-            <span style={{ opacity: 0.3 }}>&bull;</span>
             <button
               onClick={() => setActiveDoc('install-chrome')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', textDecoration: 'underline', padding: '0.1rem', fontSize: 'inherit' }}
@@ -525,22 +616,6 @@ export default function LandingPage() {
                   </h3>
                   <p>
                     Du hast jederzeit das Recht auf unentgeltliche Auskunft über Herkunft, Empfänger und Zweck deiner gespeicherten personenbezogenen Daten. Du hast außerdem ein Recht auf Berichtigung, Sperrung oder Löschung dieser Daten. Du kannst dein Konto und alle damit verbundenen Angebote und Bilder jederzeit direkt in deinen Profileinstellungen löschen.
-                  </p>
-                </div>
-              ) : activeDoc === 'install-android' ? (
-                <div>
-                  <p style={{ marginBottom: '1.25rem' }}>
-                    So installierst du die Velosia-App auf deinem Android-Smartphone. Da die App nicht über den Play Store läuft, installierst du sie direkt aus der Datei – das geht in wenigen Schritten:
-                  </p>
-                  <ol style={guideOlStyle}>
-                    <li style={guideLiStyle}>Tippe oben auf <strong>„App für Android laden"</strong>. Die Datei <Code>velosia-latest.apk</Code> wird heruntergeladen.</li>
-                    <li style={guideLiStyle}>Öffne die heruntergeladene Datei – über die Download-Benachrichtigung oder in deiner <strong>Dateien-/Downloads</strong>-App.</li>
-                    <li style={guideLiStyle}>Beim ersten Mal fragt Android nach der Erlaubnis, Apps aus dieser Quelle zu installieren. Tippe auf <strong>„Einstellungen"</strong> und aktiviere <strong>„Aus dieser Quelle zulassen"</strong>.</li>
-                    <li style={guideLiStyle}>Gehe zurück und tippe auf <strong>„Installieren"</strong>, danach auf <strong>„Öffnen"</strong>.</li>
-                    <li style={guideLiStyle}>Registriere dich oder melde dich an – fertig. Neue Versionen meldet dir die App künftig automatisch.</li>
-                  </ol>
-                  <p style={guideHintStyle}>
-                    Der Schritt mit der Quellen-Erlaubnis ist bei Apps außerhalb des Play Stores normal und nur einmalig nötig.
                   </p>
                 </div>
               ) : activeDoc === 'install-chrome' ? (

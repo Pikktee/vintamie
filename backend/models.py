@@ -164,3 +164,16 @@ class BugReport(Base):
         return self.user.email if self.user else None
 
 
+class WaitlistEntry(Base):
+    """Public sign-ups from the landing page wanting to become Play Store testers.
+    No auth required to create one; the maintainer turns these into Play Console
+    internal-test testers manually."""
+    __tablename__ = "waitlist_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, nullable=False, unique=True, index=True)
+    note = Column(String, nullable=True)
+    source = Column(String, nullable=True)          # e.g. "landing"
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
