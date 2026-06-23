@@ -204,7 +204,7 @@ def main():
         print("https://railway.app/project/42d17b5d-61c9-4921-a21f-582d9a4c1d8a")
     else:
         print("\n🎉 Code pushed to GitHub! GitHub Actions will now automatically build and deploy this release.")
-        print("Monitor the build on GitHub: https://github.com/Pikktee/vintamie/actions")
+        print("Monitor the build on GitHub: https://github.com/Pikktee/velosia/actions")
         print("Or check your Railway dashboard: https://railway.app/project/42d17b5d-61c9-4921-a21f-582d9a4c1d8a")
 
 if __name__ == "__main__":
