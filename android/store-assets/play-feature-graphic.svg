@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 500" fill="none">
+  <defs>
+    <linearGradient id="velosia-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#09b0b7" />
+      <stop offset="100%" stop-color="#ec4899" />
+    </linearGradient>
+    <linearGradient id="velosia-text-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0ad0d8" />
+      <stop offset="100%" stop-color="#ec4899" />
+    </linearGradient>
+    <radialGradient id="glow" cx="28%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#09b0b7" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#07090d" stop-opacity="0" />
+    </radialGradient>
+    <filter id="neon-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="500" fill="#07090d" />
+  <rect width="1024" height="500" fill="url(#glow)" />
+
+  <!-- Emblem on the left (motif scaled to ~300px box, centred vertically) -->
+  <g transform="translate(150,110) scale(0.546)">
+    <circle cx="256" cy="256" r="210" stroke="url(#velosia-grad)" stroke-width="5" stroke-dasharray="12 8" opacity="0.18" />
+    <g filter="url(#neon-glow)">
+      <path d="M 256 195 V 160 C 256 130, 235 110, 256 85 C 275 60, 295 85, 275 105" stroke="url(#velosia-grad)" stroke-width="16" stroke-linecap="round" fill="none" />
+      <path d="M 110 220 L 256 390 L 402 220 C 412 210, 405 195, 390 195 L 122 195 C 107 195, 100 210, 110 220 Z" fill="#07090d" stroke="url(#velosia-grad)" stroke-width="16" stroke-linejoin="round" />
+      <circle cx="256" cy="275" r="55" stroke="url(#velosia-grad)" stroke-width="12" fill="#07090d" />
+      <circle cx="256" cy="275" r="22" fill="url(#velosia-grad)" />
+      <circle cx="264" cy="267" r="6" fill="#fff" opacity="0.8" />
+      <path d="M 400 100 c 0 12 -8 20 -20 20 c 12 0 20 8 20 20 c 0 -12 8 -20 20 -20 c -12 0 -20 -8 -20 -20 z" fill="#ec4899" />
+    </g>
+  </g>
+
+  <!-- Wordmark + tagline on the right -->
+  <text x="430" y="240" font-family="'Avenir Next','Helvetica Neue',Arial,sans-serif" font-weight="800" font-size="118" letter-spacing="4" fill="url(#velosia-text-grad)" filter="url(#neon-glow)">Velosia</text>
+  <text x="434" y="305" font-family="'Avenir Next','Helvetica Neue',Arial,sans-serif" font-weight="500" font-size="34" letter-spacing="1" fill="#c9d2dd">Fotografieren. KI macht den Rest.</text>
+  <text x="434" y="348" font-family="'Avenir Next','Helvetica Neue',Arial,sans-serif" font-weight="400" font-size="25" letter-spacing="0.3" fill="#7d8794">Für Vinted &amp; Kleinanzeigen – in Sekunden.</text>
+</svg>
