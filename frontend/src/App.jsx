@@ -9,6 +9,7 @@ import Login from './components/Login';
 import Settings from './components/Settings';
 import LandingPage from './components/LandingPage';
 import TesterPage from './components/TesterPage';
+import LegalPage from './components/LegalPage';
 import BugReportModal from './components/BugReportModal';
 import IssueManagement from './components/IssueManagement';
 import { getDrafts, deleteDraft, isAuthenticated, setAuthToken, getMe, uploadAndAnalyze, uploadTurbo, refreshAllListings } from './utils/api';
@@ -127,7 +128,8 @@ export default function App() {
           window.location.hash = '#/login';
         }
       } else {
-        if (route !== '#/' && route !== '#/login' && route !== '#/testen') {
+        const guestRoutes = ['#/', '#/login', '#/testen', '#/datenschutz', '#/impressum'];
+        if (!guestRoutes.includes(route)) {
           window.location.hash = '#/';
         }
       }
@@ -458,6 +460,10 @@ export default function App() {
             <Login onLoginSuccess={handleLoginSuccess} />
           ) : route === '#/testen' ? (
             <TesterPage />
+          ) : route === '#/datenschutz' ? (
+            <LegalPage doc="datenschutz" />
+          ) : route === '#/impressum' ? (
+            <LegalPage doc="impressum" />
           ) : (
             isAndroid ? <Login onLoginSuccess={handleLoginSuccess} /> : <LandingPage />
           )}
