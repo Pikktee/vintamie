@@ -4,7 +4,7 @@ import { FlaskConical, ArrowLeft, ExternalLink, UserPlus, Download, LogIn, Mail 
 // Internal-test opt-in link from the Play Console:
 //   Test und Veröffentlichung → Test → Interner Test → Tab "Tester" → "Link kopieren".
 // Until it's filled in, the join button points users to the waitlist instead.
-const OPTIN_URL = 'https://play.google.com/apps/internaltest/REPLACE_ME';
+const OPTIN_URL = 'https://play.google.com/apps/internaltest/4701493677596269227';
 const STORE_URL = 'https://play.google.com/store/apps/details?id=com.velosia.app';
 const OPTIN_READY = !OPTIN_URL.includes('REPLACE_ME');
 

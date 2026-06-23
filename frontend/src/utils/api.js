@@ -405,3 +405,54 @@ export const deleteBugReport = async (id) => {
   return true;
 };
 
+// --- ADMIN API ---
+
+export const getWaitlist = async () => {
+  const response = await fetch(`${API_BASE_URL}/api/waitlist`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'Fehler beim Laden der Warteliste.');
+  }
+  return response.json();
+};
+
+export const getAdminUsers = async () => {
+  const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'Fehler beim Laden der Benutzer.');
+  }
+  return response.json();
+};
+
+export const setUserBlocked = async (id, blocked) => {
+  const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}/block`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ blocked }),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'Aktion fehlgeschlagen.');
+  }
+  return response.json();
+};
+
+export const deleteUser = async (id) => {
+  const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}`, {
+    method: 'DELETE',
+    headers: getHeaders(),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'Benutzer konnte nicht gelöscht werden.');
+  }
+  return true;
+};
+

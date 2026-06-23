@@ -100,7 +100,8 @@ def run_migrations():
         # default_category was dropped (categories are AI-resolved); any existing
         # physical column in older DBs is left in place, inert and unreferenced.
         ("default_shipping", "VARCHAR(200)"),
-        ("auto_submit", "BOOLEAN DEFAULT 0")
+        ("auto_submit", "BOOLEAN DEFAULT 0"),
+        ("is_blocked", "BOOLEAN DEFAULT 0")
     ]:
         try:
             db.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}"))
@@ -114,7 +115,7 @@ def run_migrations():
 
 run_migrations()
 
-app = FastAPI(title="Velosia API", version="2.6.2")
+app = FastAPI(title="Velosia API", version="2.6.3")
 
 UPLOAD_DIR = "/data/uploads" if os.path.isdir("/data") else "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -158,6 +159,11 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             detail="Benutzerkonto wurde nicht gefunden.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    if getattr(user, "is_blocked", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Dieses Konto wurde gesperrt.",
+        )
     return user
 
 # --- AUTH ENDPOINTS ---
@@ -190,7 +196,9 @@ def login(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Ungültige E-Mail-Adresse oder Passwort."
         )
-    
+    if getattr(db_user, "is_blocked", False):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dieses Konto wurde gesperrt.")
+
     access_token = create_access_token(data={"sub": db_user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -295,7 +303,10 @@ def login_google(login_in: schemas.GoogleLogin, db: Session = Depends(get_db)):
             db_user.google_id = google_id
             db.commit()
             db.refresh(db_user)
-            
+
+    if getattr(db_user, "is_blocked", False):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dieses Konto wurde gesperrt.")
+
     access_token = create_access_token(data={"sub": db_user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -1120,6 +1131,103 @@ def list_waitlist(
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Not authorized")
     return db.query(models.WaitlistEntry).order_by(models.WaitlistEntry.created_at.desc()).all()
+
+
+# --- Admin user management ---------------------------------------------------
+# Per-image estimate (EUR) for the admin cost overview. There is no real token
+# accounting yet, so cost is ESTIMATED from the number of analysed images
+# (Gemini Vision dominates the bill). Tunable via env without a redeploy.
+EST_COST_PER_IMAGE_EUR = float(os.getenv("EST_COST_PER_IMAGE_EUR", "0.0025"))
+
+
+def _count_draft_images(draft: models.Draft) -> int:
+    """Number of images attached to a draft (CSV image_paths, else single)."""
+    if getattr(draft, "image_paths", None):
+        return len([p for p in draft.image_paths.split(",") if p.strip()])
+    if getattr(draft, "image_path", None):
+        return 1
+    return 0
+
+
+@app.get("/api/admin/users", response_model=List[schemas.AdminUserResponse])
+def admin_list_users(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Admin-only: all users with usage stats + estimated AI cost."""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    users = db.query(models.User).order_by(models.User.created_at.desc()).all()
+    out = []
+    for u in users:
+        drafts = u.drafts  # relationship; small user base, N+1 is fine here
+        image_count = sum(_count_draft_images(d) for d in drafts)
+        out.append(schemas.AdminUserResponse(
+            id=u.id,
+            email=u.email,
+            created_at=u.created_at,
+            is_admin=u.is_admin,
+            is_blocked=bool(getattr(u, "is_blocked", False)),
+            draft_count=len(drafts),
+            image_count=image_count,
+            est_cost_eur=round(image_count * EST_COST_PER_IMAGE_EUR, 4),
+        ))
+    return out
+
+
+@app.post("/api/admin/users/{user_id}/block", response_model=schemas.AdminUserResponse)
+def admin_block_user(
+    user_id: int,
+    req: schemas.UserBlockRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Admin-only: suspend or re-activate a user account."""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    target = db.query(models.User).filter(models.User.id == user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Benutzer nicht gefunden.")
+    if target.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Du kannst dein eigenes Konto nicht sperren.")
+    if target.is_admin and req.blocked:
+        raise HTTPException(status_code=400, detail="Admin-Konten können nicht gesperrt werden.")
+
+    target.is_blocked = req.blocked
+    db.commit()
+    db.refresh(target)
+
+    drafts = target.drafts
+    image_count = sum(_count_draft_images(d) for d in drafts)
+    return schemas.AdminUserResponse(
+        id=target.id, email=target.email, created_at=target.created_at,
+        is_admin=target.is_admin, is_blocked=bool(target.is_blocked),
+        draft_count=len(drafts), image_count=image_count,
+        est_cost_eur=round(image_count * EST_COST_PER_IMAGE_EUR, 4),
+    )
+
+
+@app.delete("/api/admin/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def admin_delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Admin-only: permanently delete a user and all their drafts (cascade)."""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    target = db.query(models.User).filter(models.User.id == user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Benutzer nicht gefunden.")
+    if target.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Du kannst dein eigenes Konto nicht löschen.")
+    if target.is_admin:
+        raise HTTPException(status_code=400, detail="Admin-Konten können nicht gelöscht werden.")
+
+    db.delete(target)   # User.drafts cascade="all, delete-orphan" removes drafts
+    db.commit()
+    return None
 
 
 @app.get("/api/bugs", response_model=List[schemas.BugReportResponse])

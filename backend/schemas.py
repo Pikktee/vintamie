@@ -158,3 +158,18 @@ class WaitlistResponse(BaseModel):
         from_attributes = True
 
 
+# Admin user management
+class AdminUserResponse(BaseModel):
+    id: int
+    email: str
+    created_at: datetime
+    is_admin: bool
+    is_blocked: bool
+    draft_count: int
+    image_count: int
+    est_cost_eur: float
+
+class UserBlockRequest(BaseModel):
+    blocked: bool
+
+

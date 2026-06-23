@@ -27,6 +27,9 @@ class User(Base):
     # When True, autofill on Vinted/Kleinanzeigen also clicks "publish" itself.
     # Default False so the user reviews the prefilled listing and publishes manually.
     auto_submit = Column(Boolean, default=False, nullable=True)
+    # When True the account is suspended: login + all authenticated requests are
+    # rejected. Set/cleared by an admin via /api/admin/users/{id}/block.
+    is_blocked = Column(Boolean, default=False, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
