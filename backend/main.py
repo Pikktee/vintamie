@@ -115,7 +115,7 @@ def run_migrations():
 
 run_migrations()
 
-app = FastAPI(title="Velosia API", version="Vinted/KA-Veroeffentlichung: App erkennt die veroeffentlichte Anzeige nativ (auch bei Vinted-SPA-Navigation via doUpdateVisitedHistory), erfasst sie authentifiziert per okhttp, schliesst die WebView automatisch und zeigt eine Erfolgsmeldung -> Status erscheint zuverlaessig im Dashboard")
+app = FastAPI(title="Velosia API", version="Vinted-Veroeffentlichung zuverlaessig erkannt: Engine faengt die Item-Erstellungs-API-Antwort ab (fetch/XHR-Patch, navigationsunabhaengig) und meldet die neue Item-ID per Bridge an die App -> native Erfassung (okhttp+Token), Auto-Close der WebView und Erfolgsmeldung; URL-Polling + doUpdateVisitedHistory als Backstop")
 
 UPLOAD_DIR = "/data/uploads" if os.path.isdir("/data") else "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)

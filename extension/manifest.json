@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Velosia Assistant",
-  "version": "Vinted/KA-Veroeffentlichung: App erkennt die veroeffentlichte Anzeige nativ (auch bei Vinted-SPA-Navigation via doUpdateVisitedHistory), erfasst sie authentifiziert per okhttp, schliesst die WebView automatisch und zeigt eine Erfolgsmeldung -> Status erscheint zuverlaessig im Dashboard",
+  "version": "Vinted-Veroeffentlichung zuverlaessig erkannt: Engine faengt die Item-Erstellungs-API-Antwort ab (fetch/XHR-Patch, navigationsunabhaengig) und meldet die neue Item-ID per Bridge an die App -> native Erfassung (okhttp+Token), Auto-Close der WebView und Erfolgsmeldung; URL-Polling + doUpdateVisitedHistory als Backstop",
   "description": "F\u00fclle deine Vinted und Kleinanzeigen Inserate automatisch aus dem Velosia-Dashboard aus.",
   "permissions": [
     "activeTab",

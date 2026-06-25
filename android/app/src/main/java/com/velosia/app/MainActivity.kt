@@ -263,6 +263,21 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // The engine calls this the moment Vinted's item-creation API returns the new
+        // item id (navigation-independent). We capture it natively (okhttp + token, no
+        // CORS) and auto-close with a success message — the reliable path on Android.
+        @JavascriptInterface
+        fun onListingPublished(platform: String, listingId: String, listingUrl: String) {
+            runOnUiThread {
+                if (hasCaptured || activeDraftId < 0 || listingId.isBlank()) return@runOnUiThread
+                val token = authToken ?: return@runOnUiThread
+                hasCaptured = true
+                val url = if (listingUrl.startsWith("http")) listingUrl
+                          else "https://www.${if (platform == "vinted") "vinted.de" else "kleinanzeigen.de"}/items/$listingId"
+                capturePublishedListing(activeDraftId, platform, listingId, url, token)
+            }
+        }
+
         // The autofill engine pulls the prepared draft photos (data: URLs) from here
         // and injects all of them — no file chooser, no cross-origin fetch.
         @JavascriptInterface

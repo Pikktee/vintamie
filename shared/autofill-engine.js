@@ -1779,19 +1779,119 @@
     } catch (e) { return null; }
   }
 
-  // Vinted is a React SPA: publishing navigates from /items/new to /items/<id>
-  // WITHOUT a document reload, so a content script matched on the item page never
-  // runs. We instead keep watching the URL from the already-loaded engine and
-  // capture the id once it appears. Fire-and-forget (do not await).
+  // Vinted is a React SPA: publishing does NOT reliably navigate to /items/<id>
+  // (esp. on mobile it may stay on /items/new or jump elsewhere), so URL-watching
+  // alone misses the event. The robust signal is the item-creation API RESPONSE:
+  // we patch fetch/XHR before publish and read the new item's id out of the JSON
+  // the moment Vinted's create call returns — independent of any navigation.
+  // Backstop: keep polling the URL too. Fire-and-forget (do not await).
   async function watchVintedPublish(draft, options) {
     if (!draft || draft.id == null || !options || !options.backendUrl) return;
+    var captured = false;
+
+    function originOf() { try { return window.location.origin; } catch (e) { return ""; } }
+
+    // Build an absolute listing URL from whatever the API gave us (full url, a
+    // relative path, or just an id) so the backend can poll it later.
+    function listingUrlFrom(item) {
+      var u = item && (item.url || item.path);
+      if (u) return /^https?:/.test(u) ? u : (originOf() + u);
+      if (item && item.id != null) return originOf() + "/items/" + item.id;
+      return null;
+    }
+
+    function fire(item) {
+      if (captured || !item || item.id == null) return;
+      captured = true;
+      var listingUrl = listingUrlFrom(item);
+      console.log("Velosia: Vinted-Item erkannt -> id=" + item.id + " url=" + listingUrl);
+      // Backend capture (works on desktop too; idempotent server-side).
+      captureListing({
+        backendUrl: options.backendUrl, token: options.token,
+        draftId: draft.id, href: listingUrl
+      });
+      // Native shell: let it capture authenticated + auto-close with a success
+      // message. Harmless no-op in the browser extension (no bridge).
+      try {
+        if (window.VelosiaBridge && window.VelosiaBridge.onListingPublished) {
+          window.VelosiaBridge.onListingPublished("vinted", String(item.id), listingUrl || "");
+        }
+      } catch (e) {}
+    }
+
+    // Pull an item id out of a parsed JSON response body, if it looks like an item.
+    function itemFromJson(data) {
+      if (!data || typeof data !== "object") return null;
+      var item = data.item || data;
+      if (item && item.id != null && (item.url || item.path || item.title != null)) return item;
+      return null;
+    }
+
+    // --- Patch fetch: inspect POST/PUT responses to Vinted's item endpoints. ---
+    try {
+      var origFetch = window.fetch;
+      if (origFetch && !origFetch.__velosiaPatched) {
+        var patched = function (input, init) {
+          var url = (typeof input === "string") ? input : (input && input.url) || "";
+          var method = (init && init.method) || (input && input.method) || "GET";
+          var p = origFetch.apply(this, arguments);
+          try {
+            if (!captured && /\/api\/v\d+\/item/i.test(url) && /post|put/i.test(method)) {
+              console.log("Velosia: Vinted-Publish-Request beobachtet -> " + method + " " + url);
+              p.then(function (resp) {
+                try {
+                  resp.clone().json().then(function (data) {
+                    var item = itemFromJson(data);
+                    if (item) fire(item);
+                  }).catch(function () {});
+                } catch (e) {}
+              }).catch(function () {});
+            }
+          } catch (e) {}
+          return p;
+        };
+        patched.__velosiaPatched = true;
+        window.fetch = patched;
+      }
+    } catch (e) {}
+
+    // --- Patch XHR as a secondary path (in case Vinted uses XHR somewhere). ---
+    try {
+      var XHR = window.XMLHttpRequest;
+      if (XHR && XHR.prototype && !XHR.prototype.__velosiaPatched) {
+        var origOpen = XHR.prototype.open;
+        var origSend = XHR.prototype.send;
+        XHR.prototype.open = function (method, url) {
+          this.__velosiaMethod = method; this.__velosiaUrl = url;
+          return origOpen.apply(this, arguments);
+        };
+        XHR.prototype.send = function () {
+          try {
+            var self = this;
+            if (!captured && /\/api\/v\d+\/item/i.test(self.__velosiaUrl || "") &&
+                /post|put/i.test(self.__velosiaMethod || "")) {
+              self.addEventListener("load", function () {
+                try {
+                  var data = JSON.parse(self.responseText);
+                  var item = itemFromJson(data);
+                  if (item) fire(item);
+                } catch (e) {}
+              });
+            }
+          } catch (e) {}
+          return origSend.apply(this, arguments);
+        };
+        XHR.prototype.__velosiaPatched = true;
+      }
+    } catch (e) {}
+
+    // --- Backstop: poll the URL in case Vinted DOES navigate to /items/<id>. ---
     var deadline = 10 * 60 * 1000; // give the user up to 10 min to review & publish
-    for (var elapsed = 0; elapsed < deadline; elapsed += 2500) {
+    for (var elapsed = 0; elapsed < deadline && !captured; elapsed += 2500) {
       await sleep(2500);
       var info = parseListingUrl(window.location.href);
       if (info && info.platform === "vinted") {
-        await captureListing({ backendUrl: options.backendUrl, token: options.token, draftId: draft.id });
-        console.log("Velosia: Vinted-Angebot veröffentlicht erfasst ->", info.listingId);
+        fire({ id: info.listingId, url: info.listingUrl });
         return;
       }
     }

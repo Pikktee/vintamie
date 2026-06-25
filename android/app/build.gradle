@@ -48,8 +48,8 @@ android {
         applicationId "com.velosia.app"
         minSdk 26
         targetSdk 35
-        versionCode 154
-        versionName "Vinted/KA-Veroeffentlichung: App erkennt die veroeffentlichte Anzeige nativ (auch bei Vinted-SPA-Navigation via doUpdateVisitedHistory), erfasst sie authentifiziert per okhttp, schliesst die WebView automatisch und zeigt eine Erfolgsmeldung -> Status erscheint zuverlaessig im Dashboard"
+        versionCode 155
+        versionName "Vinted-Veroeffentlichung zuverlaessig erkannt: Engine faengt die Item-Erstellungs-API-Antwort ab (fetch/XHR-Patch, navigationsunabhaengig) und meldet die neue Item-ID per Bridge an die App -> native Erfassung (okhttp+Token), Auto-Close der WebView und Erfolgsmeldung; URL-Polling + doUpdateVisitedHistory als Backstop"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
