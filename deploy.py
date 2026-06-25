@@ -76,6 +76,10 @@ def sync_shared_engine():
     targets = [
         "extension/autofill-engine.js",
         "android/app/src/main/assets/autofill-engine.js",
+        # Served by Vite at /autofill-engine.js so the Android shell can hot-load the
+        # latest engine over the web (a 2-min web deploy) without a full Play release.
+        # The bundled asset above stays as the offline fallback.
+        "frontend/public/autofill-engine.js",
     ]
     for dst in targets:
         os.makedirs(os.path.dirname(dst), exist_ok=True)

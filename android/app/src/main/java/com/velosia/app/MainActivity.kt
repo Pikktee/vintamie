@@ -64,6 +64,10 @@ class MainActivity : AppCompatActivity() {
     // Cached autofill engine JS (the very same file the browser extension uses,
     // bundled here as an asset). Read once, then reused for every injection.
     private var engineJsCache: String? = null
+    // Latest engine fetched over the web (frontend /autofill-engine.js). Preferred
+    // over the bundled asset when present, so engine tweaks ship via a quick web
+    // deploy without a full Play release. Refreshed on each "post to platform".
+    @Volatile private var remoteEngineJs: String? = null
 
     private val okHttpClient = OkHttpClient()
 
@@ -237,6 +241,7 @@ class MainActivity : AppCompatActivity() {
                 hasAutoFilled = false
                 hasAutoCategory = false
                 draftImageDataUrls = emptyList()
+                prefetchRemoteEngine()
                 fetchUserProfile(token)
                 fetchDraftAndPrepare(draftId, platform, token)
             }
@@ -421,9 +426,31 @@ class MainActivity : AppCompatActivity() {
         webView.loadUrl(frontendUrl)
     }
 
-    // Reads the shared autofill engine JS (bundled as an asset; the exact same
-    // file the browser extension uses). Cached after the first read.
+    // Fetch the latest engine from the web (frontend /autofill-engine.js) so engine
+    // tweaks can ship via a quick web deploy without a full Play release. Best-effort:
+    // on any failure we just keep using the bundled asset. A cache-buster avoids stale
+    // CDN copies. Kicked off when the user starts a "post to platform" so it is ready
+    // by the time the form loads; if not, readEngineJs falls back to the asset.
+    private fun prefetchRemoteEngine() {
+        val url = "$frontendUrl/autofill-engine.js?ts=${System.currentTimeMillis()}"
+        val request = Request.Builder().url(url).header("Cache-Control", "no-cache").build()
+        okHttpClient.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) { /* keep bundled asset */ }
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (!response.isSuccessful) return
+                    val js = response.body?.string() ?: return
+                    // Sanity check it is really the engine before trusting it.
+                    if (js.contains("__velosia") && js.length > 1000) remoteEngineJs = js
+                }
+            }
+        })
+    }
+
+    // Reads the shared autofill engine JS. Prefers the web-fetched copy (latest),
+    // else the bundled asset (offline fallback), cached after the first read.
     private fun readEngineJs(): String {
+        remoteEngineJs?.let { return it }
         engineJsCache?.let { return it }
         return try {
             val js = assets.open("autofill-engine.js").bufferedReader().use { it.readText() }

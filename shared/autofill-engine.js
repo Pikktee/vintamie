@@ -644,12 +644,16 @@
   async function vintedClickLevel(id, name) {
     for (var t = 0; t < 16; t++) {
       var c = vintedPickerContainer();
-      if (c) {
-        var icon = id ? c.querySelector("[data-testid='catalog-icon-" + id + "']") : null;
+      if (c && id) {
+        var icon = c.querySelector("[data-testid='catalog-icon-" + id + "']");
         if (icon && isInteractable(icon)) { vintedClickable(icon).click(); return true; }
-        var row = vintedRowMatch(c, name);
-        if (row) { vintedClickable(row).click(); return true; }
       }
+      // Match option rows. The picker container often holds only the search box (the
+      // option list lives in a sibling subtree), so we also search the whole document
+      // — safe because vintedRowMatch excludes navigating links, so a document-wide
+      // search can never drift onto a catalog browse link.
+      var row = (c && vintedRowMatch(c, name)) || vintedRowMatch(document.body, name);
+      if (row) { vintedClickable(row).click(); return true; }
       await sleep(350);
     }
     return false;
