@@ -802,6 +802,27 @@
     } catch (e) {}
   }
 
+  // The picker modal's own "Fertig" save button that commits the selected leaf and
+  // closes the modal (data-testid input-dropdown-save-button). This is the modal's
+  // save — NOT a form button like "Entwurf speichern"/"Hochladen".
+  function vintedSaveButton() {
+    var b = firstBySelectors([
+      "[data-testid='input-dropdown-save-button']",
+      "button[data-testid*='dropdown-save']",
+      "button[data-testid*='save-button']"
+    ]);
+    if (b && isInteractable(b)) return b;
+    var btns = document.querySelectorAll("button, [role='button']");
+    for (var i = 0; i < btns.length; i++) {
+      var el = btns[i];
+      if (!isInteractable(el)) continue;
+      if (el.closest("a[href], header, nav, [role='navigation']")) continue;
+      var t = norm(el.textContent || "");
+      if (t === "fertig" || t === "done") return el;
+    }
+    return null;
+  }
+
   // Whether the picker modal is actually VISIBLE on screen. The "Finde eine
   // Kategorie" input lingers hidden in the DOM after the modal closes, so a plain
   // "does the input exist" check wrongly reports the picker still open — we must
@@ -859,16 +880,20 @@
       await sleep(450);
     }
     if (drilled) {
-      // Every level incl. the leaf was clicked — on the live form this selects the
-      // category and the modal closes on its own. Wait for it to actually disappear
-      // (the "Finde eine Kategorie" input lingers hidden, so check real visibility,
-      // NOT just existence). NEVER click a "confirm" button — the form's buttons are
-      // things like "Entwurf speichern"/"Hochladen" and clicking them is destructive.
-      for (var v = 0; v < 14 && vintedModalVisible(); v++) await sleep(300);
+      // Every level incl. the leaf was clicked, which SELECTS the leaf. The mobile
+      // picker then needs an explicit "Fertig" tap (its own save button, testid
+      // input-dropdown-save-button) to commit the selection and close the modal.
+      // Success is honest: only true once the modal is actually gone (the "Finde eine
+      // Kategorie" input lingers hidden in the DOM, so we check real visibility).
+      await sleep(300);
+      var save = vintedSaveButton();
+      console.log("Velosia Vinted: Fertig-Button=" + (save ? "gefunden" : "KEINER"));
+      if (save) { try { vintedClickable(save).click(); } catch (e) {} }
+      for (var v = 0; v < 16 && vintedModalVisible(); v++) await sleep(300);
       var stillOpen = vintedModalVisible();
-      console.log("Velosia Vinted: alle Ebenen inkl. Blatt geklickt, Modal sichtbar=" + stillOpen + " — Kategorie gesetzt");
       if (stillOpen) { vintedDiagNav(); vintedDiagOptions(); }
-      return true;
+      console.log("Velosia Vinted: nach Fertig Modal sichtbar=" + stillOpen);
+      return !stillOpen;
     }
 
     // Strategy B (rescue) — only when drilling FAILED at some level: mobile search
@@ -885,9 +910,13 @@
       }
       console.log("Velosia Vinted: Suche nach '" + leaf + "' -> " + (clicked ? "Treffer geklickt" : "kein Treffer"));
       if (clicked) {
-        for (var c2 = 0; c2 < 12 && vintedModalVisible(); c2++) await sleep(300);
-        console.log("Velosia Vinted: per Suche gewählt, Modal sichtbar=" + vintedModalVisible());
-        return true;
+        await sleep(300);
+        var save2 = vintedSaveButton();
+        if (save2) { try { vintedClickable(save2).click(); } catch (e) {} }
+        for (var c2 = 0; c2 < 14 && vintedModalVisible(); c2++) await sleep(300);
+        var open2 = vintedModalVisible();
+        console.log("Velosia Vinted: per Suche gewählt + Fertig, Modal sichtbar=" + open2);
+        return !open2;
       }
     }
 
