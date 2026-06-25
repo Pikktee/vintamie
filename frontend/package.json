@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "2.6.37",
+  "version": "Vinted-Veroeffentlichung: Android reicht jetzt das Auth-Token an die Autofill-Engine weiter, damit die Listing-Erfassung (/api/listings/published) authentifiziert ist und der Status angezeigt wird",
   "type": "module",
   "scripts": {
     "dev": "vite",

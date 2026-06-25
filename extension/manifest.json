@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Velosia Assistant",
-  "version": "2.6.37",
+  "version": "Vinted-Veroeffentlichung: Android reicht jetzt das Auth-Token an die Autofill-Engine weiter, damit die Listing-Erfassung (/api/listings/published) authentifiziert ist und der Status angezeigt wird",
   "description": "F\u00fclle deine Vinted und Kleinanzeigen Inserate automatisch aus dem Velosia-Dashboard aus.",
   "permissions": [
     "activeTab",

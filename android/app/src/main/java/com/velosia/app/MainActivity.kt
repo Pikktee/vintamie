@@ -48,6 +48,10 @@ class MainActivity : AppCompatActivity() {
 
     private var activeDraftJson: String? = null
     private var activePlatform: String? = null
+    // The JWT of the user who triggered the autofill. Handed to the engine so its
+    // listing-capture POST (/api/listings/published) is authenticated — without it
+    // the published listing is never recorded and the dashboard shows no status.
+    private var authToken: String? = null
     // All draft photos, fetched server-side (okhttp, no browser CORS) and base64
     // data-URL encoded, handed to the autofill engine via the JS bridge so it can
     // inject every photo without a file chooser or a cross-origin fetch.
@@ -229,6 +233,7 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this@MainActivity, "Lade Angebot #$draftId...", Toast.LENGTH_SHORT).show()
                 hasAutoFilled = false
                 hasAutoCategory = false
+                authToken = token
                 draftImageDataUrls = emptyList()
                 prefetchRemoteEngine()
                 fetchUserProfile(token)
@@ -459,6 +464,7 @@ class MainActivity : AppCompatActivity() {
         val draftJson = activeDraftJson ?: return
         val escapedJson = draftJson.replace("\\", "\\\\").replace("'", "\\'")
         val zip = userZip?.replace("\\", "\\\\")?.replace("'", "\\'") ?: ""
+        val token = authToken?.replace("\\", "\\\\")?.replace("'", "\\'") ?: ""
         val engine = readEngineJs()
         if (engine.isEmpty()) {
             Toast.makeText(this, "Autofill-Engine konnte nicht geladen werden.", Toast.LENGTH_SHORT).show()
@@ -479,6 +485,7 @@ class MainActivity : AppCompatActivity() {
                         autoSubmit: $autoSubmit,
                         imageMode: 'bridge',
                         backendUrl: '$backendUrl',
+                        token: '$token',
                         showOverlay: true
                     });
                 } catch (e) { console.error('Velosia autofill failed', e); }
