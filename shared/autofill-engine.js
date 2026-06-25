@@ -574,16 +574,45 @@
   // ([data-testid='catalog-select-dropdown-content']) and the MOBILE full-screen
   // modal (a dialog with a "Finde eine Kategorie" search box and plain rows). In
   // the WebView shell Vinted serves the mobile modal, so we detect both.
+  // The OPEN picker modal's search box ("Finde eine Kategorie"). Must be strict: a
+  // looser "contains kategorie" matched the page's top-nav/catalog search too, which
+  // made the engine think the picker was already open and SKIP opening the real modal.
   function vintedCategorySearchInput() {
     var inputs = document.querySelectorAll("input[type='text'], input[type='search'], input:not([type])");
     for (var i = 0; i < inputs.length; i++) {
-      if (!isInteractable(inputs[i])) continue;
-      var ph = norm(inputs[i].placeholder || "");
-      var al = norm(inputs[i].getAttribute("aria-label") || "");
-      if (ph.indexOf("kategorie") !== -1 || ph.indexOf("category") !== -1 ||
-          al.indexOf("kategorie") !== -1 || al.indexOf("category") !== -1) return inputs[i];
+      var inp = inputs[i];
+      if (!isInteractable(inp)) continue;
+      var txt = norm(inp.placeholder || "") + " " + norm(inp.getAttribute("aria-label") || "");
+      var aboutCategory = txt.indexOf("kategorie") !== -1 || txt.indexOf("category") !== -1;
+      if (!aboutCategory) continue;
+      if (txt.indexOf("finde") !== -1 || txt.indexOf("find") !== -1 ||
+          inp.closest("[role='dialog'], [aria-modal='true']")) return inp;
     }
     return null;
+  }
+
+  // The collapsed category FIELD on the form that opens the modal when clicked.
+  // Excludes the top-nav category tabs / browse links / headings.
+  function vintedCategoryOpener() {
+    var o = firstBySelectors([
+      "[data-testid='catalog-select-dropdown-input']",
+      "[data-testid='catalog-select-dropdown-chevron']",
+      "[data-testid='catalog-select-dropdown']"
+    ]);
+    if (o) return o;
+    var cands = document.querySelectorAll("[role='button'], button, [tabindex], input[readonly], li, div");
+    var best = null;
+    for (var i = 0; i < cands.length; i++) {
+      var el = cands[i];
+      if (!isInteractable(el)) continue;
+      if (el.closest("a[href], header, nav, [role='navigation'], [role='tablist'], [role='tab'], #velosia-backdrop, #velosia-overlay")) continue;
+      if (el.querySelector("input, textarea")) continue;
+      var t = norm(el.textContent || el.getAttribute("placeholder") || el.value || "");
+      if (t === "kategorie" || (t.indexOf("kategorie") !== -1 && t.length <= 24)) {
+        if (!best || el.getElementsByTagName("*").length < best.getElementsByTagName("*").length) best = el;
+      }
+    }
+    return best;
   }
 
   // The picker modal scoped as tightly as possible. We must NOT fall back to
@@ -692,6 +721,27 @@
     } catch (e) {}
   }
 
+  // Diagnostic: log small elements whose text CONTAINS the substring (e.g. to find
+  // the collapsed category field that opens the modal).
+  function vintedDiagText(sub) {
+    try {
+      var needle = norm(sub);
+      var nodes = document.querySelectorAll("[role='button'], button, [tabindex], input, li, div, span");
+      var hits = [];
+      for (var i = 0; i < nodes.length && hits.length < 8; i++) {
+        var el = nodes[i];
+        var t = norm(el.textContent || el.getAttribute("placeholder") || el.value || "");
+        if (!t || t.indexOf(needle) === -1 || t.length > 28) continue;
+        var inNav = el.closest("header, nav, [role='navigation'], [role='tablist'], [role='tab']");
+        hits.push(el.tagName +
+          (el.getAttribute && el.getAttribute("role") ? "[role=" + el.getAttribute("role") + "]" : "") +
+          " '" + t.slice(0, 24) + "' inNav=" + !!inNav + " kids=" + el.getElementsByTagName("*").length +
+          " cls=" + ((el.className || "").toString().slice(0, 40)));
+      }
+      console.log("Velosia Vinted DIAGTEXT '" + sub + "' [" + hits.length + "]: " + (hits.length ? hits.join("  ||  ") : "nichts"));
+    } catch (e) {}
+  }
+
   async function selectVintedCategory(draft) {
     var ids = String(draft.vinted_path || draft.vintedPath || "").split("/").filter(Boolean);
     var names = String(draft.vinted_category || draft.vintedCategory || "")
@@ -699,23 +749,14 @@
     if (names.length === 0 && ids.length === 0) return false;
     console.log("Velosia Vinted: Kategorie '" + names.join(" > ") + "' (ids " + ids.join("/") + ")");
 
-    // Open the picker if it is not already open. Desktop exposes a dropdown input;
-    // the mobile form opens a modal when its "Kategorie" row is tapped.
+    // Open the picker modal if it is not already open. Clicking the collapsed
+    // "Kategorie" field on the form opens it (mobile) / focuses the dropdown (desktop).
     if (!vintedPickerContainer()) {
-      var opener = firstBySelectors([
-        "[data-testid='catalog-select-dropdown-input']",
-        "[data-testid='catalog-select-dropdown-chevron']"
-      ]);
-      if (!opener) {
-        var cands = document.querySelectorAll("[role='button'], button, a, div[tabindex], li");
-        for (var k = 0; k < cands.length; k++) {
-          if (!isInteractable(cands[k])) continue;
-          var lt = norm(cands[k].textContent || "");
-          if (lt === "kategorie" || (lt.indexOf("kategorie") !== -1 && lt.length < 22)) { opener = cands[k]; break; }
-        }
-      }
+      var opener = vintedCategoryOpener();
+      if (!opener) vintedDiagText("kategorie");
+      console.log("Velosia Vinted: Opener=" + (opener ? (opener.tagName + " '" + norm(opener.textContent || "").slice(0, 24) + "'") : "KEINER"));
       if (opener) {
-        for (var o = 0; o < 12 && !vintedPickerContainer(); o++) {
+        for (var o = 0; o < 16 && !vintedPickerContainer(); o++) {
           try {
             opener.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
             opener.click();
@@ -727,6 +768,7 @@
     }
     var hasSearch = !!vintedCategorySearchInput();
     console.log("Velosia Vinted: Picker offen=" + !!vintedPickerContainer() + ", Suchfeld=" + hasSearch);
+    if (!vintedPickerContainer()) vintedDiagText("kategorie");
     vintedDiag(names[0] || "");
 
     // Strategy A — drill level by level (catalog-id icon first, then robust name
@@ -738,6 +780,7 @@
       // Safety: if a click ever navigated us off the form (e.g. a stray browse link),
       // stop immediately instead of drilling on the wrong page.
       if (!onForm()) { console.warn("Velosia Vinted: Formular verlassen (" + location.pathname + ") — Abbruch"); return false; }
+      setBackdrop("Kategorie: " + (i + 1) + "/" + levels + " — " + (names[i] || "") + " …");
       var ok = await vintedClickLevel(ids[i] || null, names[i] || "");
       console.log("Velosia Vinted: Ebene " + i + " '" + (names[i] || "") + "' (id " + (ids[i] || "-") + ") -> " + (ok ? "geklickt" : "NICHT gefunden"));
       if (!ok) { vintedDiag(names[i] || ""); drilled = false; break; }
