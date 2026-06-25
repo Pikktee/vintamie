@@ -13,7 +13,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
@@ -29,8 +28,6 @@ import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
 
 class MainActivity : AppCompatActivity() {
@@ -47,12 +44,6 @@ class MainActivity : AppCompatActivity() {
     private var backendUrl = "https://api.velosia.henrikheil.net"
 
     private var activeDraftJson: String? = null
-    private var activeImageUri: Uri? = null
-    // Armed once per "Befüllen" run: when true the next file chooser opened by the
-    // page (the engine's programmatic input.click()) is answered with the prepared
-    // draft photo instead of the system picker. The URI itself stays valid for the
-    // whole draft session so a retry never falls back to an empty picker.
-    private var armImageChooser = false
     private var activePlatform: String? = null
     private var userZip: String? = null
     // Guards the automatic one-shot fill so it does not re-trigger on every SPA page event
@@ -156,27 +147,17 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Setup WebChromeClient to handle automatic image upload injection & camera permission
+        // Setup WebChromeClient to handle manual image picks & camera permission.
+        // Note: the draft photos are uploaded automatically by the autofill engine
+        // itself (it fetches them from the backend and injects all of them via a
+        // DataTransfer — no file chooser, no user gesture). This chooser therefore
+        // only handles the user manually adding *extra* photos.
         webView.webChromeClient = object : WebChromeClient() {
             override fun onShowFileChooser(
                 webView: WebView,
                 filePathCallback: ValueCallback<Array<Uri>>,
                 fileChooserParams: FileChooserParams
             ): Boolean {
-                // Intercept the file chooser the engine opens during autofill and
-                // supply the draft photo programmatically. Only when armed (i.e. a
-                // fill is in progress) — manual "add photo" taps still open the
-                // normal picker. The URI is kept for the whole session so a second
-                // fill / retry never falls back to an empty picker.
-                if (armImageChooser) {
-                    activeImageUri?.let { uri ->
-                        armImageChooser = false
-                        filePathCallback.onReceiveValue(arrayOf(uri))
-                        Toast.makeText(this@MainActivity, "Foto automatisch hochgeladen!", Toast.LENGTH_SHORT).show()
-                        return true
-                    }
-                }
-                
                 // Open standard system file picker to select images
                 fileUploadCallback?.onReceiveValue(null)
                 fileUploadCallback = filePathCallback
@@ -233,9 +214,6 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this@MainActivity, "Lade Angebot #$draftId...", Toast.LENGTH_SHORT).show()
                 hasAutoFilled = false
                 hasAutoCategory = false
-                // Drop any photo/arming left over from a previous draft session.
-                activeImageUri = null
-                armImageChooser = false
                 fetchUserProfile(token)
                 fetchDraftAndPrepare(draftId, platform, token)
             }
@@ -249,7 +227,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Fetch draft metadata and photo from local backend
+    // Fetch draft metadata from the backend, then navigate to the platform form.
+    // The photos themselves are NOT pre-downloaded here: the autofill engine fetches
+    // them directly from the backend (CORS is open) and injects all of them, so we
+    // only need the draft JSON (which carries image_paths) in hand before navigating.
     private fun fetchDraftAndPrepare(draftId: Int, platform: String, token: String) {
         val request = Request.Builder()
             .url("$backendUrl/api/drafts/$draftId")
@@ -271,70 +252,12 @@ class MainActivity : AppCompatActivity() {
                         }
                         return
                     }
-                    
-                    val bodyString = response.body?.string() ?: return
-                    val json = JSONObject(bodyString)
-                    val imagePath = json.optString("image_path")
 
+                    val bodyString = response.body?.string() ?: return
                     activeDraftJson = bodyString
                     activePlatform = platform
 
-                    if (imagePath.isNotEmpty()) {
-                        downloadImageAndNavigate(imagePath, platform)
-                    } else {
-                        runOnUiThread {
-                            activeImageUri = null
-                            navigateToPlatformListing(platform)
-                        }
-                    }
-                }
-            }
-        })
-    }
-
-    // Download the draft photo to temporary cache dir and generate shareable content:// URI
-    private fun downloadImageAndNavigate(imagePath: String, platform: String) {
-        val url = if (imagePath.startsWith("http")) imagePath else "$backendUrl$imagePath"
-        
-        val request = Request.Builder().url(url).build()
-        okHttpClient.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread {
-                    Toast.makeText(this@MainActivity, "Bild konnte nicht geladen werden.", Toast.LENGTH_SHORT).show()
-                    navigateToPlatformListing(platform)
-                }
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                response.use {
-                    if (!response.isSuccessful) {
-                        runOnUiThread { navigateToPlatformListing(platform) }
-                        return
-                    }
-
-                    try {
-                        val cacheFile = File(cacheDir, "velosia_upload.jpg")
-                        val fos = FileOutputStream(cacheFile)
-                        fos.write(response.body?.bytes() ?: byteArrayOf())
-                        fos.close()
-
-                        // Get FileProvider URI
-                        val fileUri = FileProvider.getUriForFile(
-                            this@MainActivity,
-                            "com.velosia.app.fileprovider",
-                            cacheFile
-                        )
-
-                        runOnUiThread {
-                            activeImageUri = fileUri
-                            navigateToPlatformListing(platform)
-                        }
-                    } catch (e: Exception) {
-                        runOnUiThread {
-                            Toast.makeText(this@MainActivity, "Fehler beim Speichern des Bildes: ${e.message}", Toast.LENGTH_LONG).show()
-                            navigateToPlatformListing(platform)
-                        }
-                    }
+                    runOnUiThread { navigateToPlatformListing(platform) }
                 }
             }
         })
@@ -387,8 +310,6 @@ class MainActivity : AppCompatActivity() {
     // to the Velosia dashboard.
     private fun closeListingView() {
         activeDraftJson = null
-        activeImageUri = null
-        armImageChooser = false
         activePlatform = null
         hasAutoFilled = false
         hasAutoCategory = false
@@ -412,15 +333,12 @@ class MainActivity : AppCompatActivity() {
 
     // Injects the shared engine and runs the autofill. The engine itself detects
     // the platform and the phase (Kleinanzeigen category picker vs. the real form),
-    // fills the fields with a React/Vue-safe native value setter, triggers the
-    // photo file chooser (intercepted in onShowFileChooser to supply the draft
-    // photo), shows the result overlay and — only when autoSubmit is true —
-    // publishes the listing automatically.
+    // fills the fields with a React/Vue-safe native value setter, fetches and injects
+    // all draft photos from the backend (imageMode 'datatransfer' + backendUrl), shows
+    // the progress/result overlay and — only when autoSubmit is true — publishes the
+    // listing automatically.
     private fun injectAutofill(autoSubmit: Boolean) {
         val draftJson = activeDraftJson ?: return
-        // Arm the file-chooser interception for this fill so the prepared photo is
-        // supplied automatically when the engine clicks the upload input.
-        armImageChooser = true
         val escapedJson = draftJson.replace("\\", "\\\\").replace("'", "\\'")
         val zip = userZip?.replace("\\", "\\\\")?.replace("'", "\\'") ?: ""
         val engine = readEngineJs()
@@ -441,7 +359,8 @@ class MainActivity : AppCompatActivity() {
                     window.__velosia.autofill(draft, {
                         userZip: '$zip',
                         autoSubmit: $autoSubmit,
-                        imageMode: 'native',
+                        imageMode: 'datatransfer',
+                        backendUrl: '$backendUrl',
                         showOverlay: true
                     });
                 } catch (e) { console.error('Velosia autofill failed', e); }

@@ -257,11 +257,28 @@
     return inputs[0] || null;
   }
 
-  // Extension mode: fetch each photo and inject all of them into the file input
-  // via a DataTransfer so the host page's normal upload handler runs.
-  async function uploadPhotosDataTransfer(urls) {
+  // Poll for the file input — both forms may render it slightly after the core
+  // fields. We deliberately do NOT click any "add photo" control to reveal it: on
+  // these sites that control opens the native file chooser, which would pop over our
+  // backdrop. If no input ever appears we simply leave the photos for a manual add.
+  async function waitForFileInput() {
     var input = findFileInput();
-    if (!input || urls.length === 0) return 0;
+    for (var i = 0; i < 8 && !input; i++) {
+      await sleep(300);
+      input = findFileInput();
+    }
+    return input;
+  }
+
+  // Fetch each photo and inject ALL of them into the file input via a DataTransfer
+  // so the host page's normal upload handler runs. Used by the extension AND by the
+  // Android WebView (CORS is "*" on the backend, so the cross-origin fetch of
+  // /uploads works) — this uploads every draft photo and needs no user gesture,
+  // unlike a programmatic file-chooser click which the WebView blocks.
+  async function uploadPhotosDataTransfer(urls) {
+    if (urls.length === 0) return 0;
+    var input = await waitForFileInput();
+    if (!input) return 0;
     var dt = new DataTransfer();
     var count = 0;
     for (var i = 0; i < urls.length; i++) {
@@ -279,13 +296,15 @@
     if (count === 0) return 0;
     try {
       input.files = dt.files;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     } catch (e) { return 0; }
     return count;
   }
 
-  // Native mode (Android): just trigger the file chooser; the WebView host
-  // intercepts onShowFileChooser and supplies the prepared photo URI.
+  // Native fallback (Android, only if DataTransfer is unavailable): trigger the
+  // file chooser; the WebView host intercepts onShowFileChooser and supplies the
+  // prepared photo URI. Kept for completeness — the datatransfer path is preferred.
   function triggerNativeFileChooser() {
     var input = findFileInput();
     if (input) { try { input.click(); return 1; } catch (e) {} }
@@ -509,43 +528,93 @@
   //   vinted_path      -> "1904/4/183/1839" (chain of catalog IDs to the leaf)
   //   vinted_category  -> "Damen > Kleidung > Jeans > Boyfriend Jeans" (names)
 
+  // The picker exists in two layouts: the DESKTOP dropdown
+  // ([data-testid='catalog-select-dropdown-content']) and the MOBILE full-screen
+  // modal (a dialog with a "Finde eine Kategorie" search box and plain rows). In
+  // the WebView shell Vinted serves the mobile modal, so we detect both.
+  function vintedCategorySearchInput() {
+    var inputs = document.querySelectorAll("input[type='text'], input[type='search'], input:not([type])");
+    for (var i = 0; i < inputs.length; i++) {
+      if (!isInteractable(inputs[i])) continue;
+      var ph = norm(inputs[i].placeholder || "");
+      var al = norm(inputs[i].getAttribute("aria-label") || "");
+      if (ph.indexOf("kategorie") !== -1 || ph.indexOf("category") !== -1 ||
+          al.indexOf("kategorie") !== -1 || al.indexOf("category") !== -1) return inputs[i];
+    }
+    return null;
+  }
+
   function vintedPickerContainer() {
-    return document.querySelector("[data-testid='catalog-select-dropdown-content']");
+    var d = document.querySelector("[data-testid='catalog-select-dropdown-content']");
+    if (d) return d;
+    var search = vintedCategorySearchInput();
+    if (search) {
+      return search.closest("[role='dialog'], [class*='odal'], [class*='ialog'], [class*='heet'], [class*='verlay']") ||
+             search.parentElement || document.body;
+    }
+    return null;
   }
 
   function vintedClickable(el) {
     return (el.closest && el.closest("[role='button'],button,li,a,div[tabindex]")) || el.parentElement || el;
   }
 
-  // The picker's current-level title (the "← Computer & Zubehör" header). We must
-  // never match this when looking for the NEXT option, because norm() collapses
-  // "&" and "-" to spaces, so e.g. "Computer & Zubehör" (header) and
-  // "Computer-Zubehör" (option) would otherwise look identical.
-  function vintedHeaderTitle(container) {
-    var h = container.querySelector("[data-testid='catalog-navigation--body'], .web_ui__Navigation__body");
-    return h ? norm(h.textContent) : "";
-  }
-
   function vintedFindRowByName(container, name) {
     var target = norm(name);
     if (!target) return null;
-    // Match ONLY real option rows — exclude the navigation header / back button.
-    var rows = container.querySelectorAll("li.web_ui__Item__item");
     var i, titleEl;
+    // 1) Desktop markup — real option rows (exclude the navigation header / back).
+    var rows = container.querySelectorAll("li.web_ui__Item__item");
     for (i = 0; i < rows.length; i++) {
       if (!isInteractable(rows[i])) continue;
       if (rows[i].closest("[data-testid^='catalog-navigation']")) continue;
       titleEl = rows[i].querySelector(".web_ui__Cell__title") || rows[i];
       if (norm(titleEl.textContent) === target) return rows[i];
     }
-    // Fallback for layout changes: cell titles outside the navigation header.
     var titles = container.querySelectorAll(".web_ui__Cell__title");
     for (i = 0; i < titles.length; i++) {
       if (!isInteractable(titles[i])) continue;
       if (titles[i].closest("[data-testid^='catalog-navigation']")) continue;
       if (norm(titles[i].textContent) === target) return titles[i];
     }
-    return null;
+    // 2) Generic fallback (mobile modal): any clickable element whose OWN label
+    // equals the level name. Skip wrappers that contain the search input and the
+    // navigation header so we never click the whole modal / the back button.
+    var cand = container.querySelectorAll("a, button, li, [role='button'], [role='option'], div[tabindex]");
+    var fuzzy = null;
+    for (i = 0; i < cand.length; i++) {
+      if (!isInteractable(cand[i])) continue;
+      if (cand[i].closest("[data-testid^='catalog-navigation']")) continue;
+      if (cand[i].querySelector("input")) continue;
+      var ct = norm(cand[i].textContent || "");
+      if (!ct) continue;
+      if (ct === target) return cand[i];
+      if (!fuzzy && ct.indexOf(target) !== -1 && ct.length <= target.length + 14) fuzzy = cand[i];
+    }
+    return fuzzy;
+  }
+
+  // Pick the best matching search RESULT row (mobile): the most specific element
+  // containing the leaf name, preferring one that also contains the top category so
+  // an ambiguous leaf (e.g. "Jeans" under both Damen and Herren) resolves correctly.
+  function vintedFindSearchResult(container, leaf, top) {
+    var nLeaf = norm(leaf);
+    if (!nLeaf) return null;
+    var nTop = norm(top);
+    var cand = container.querySelectorAll("a, button, li, [role='option'], [role='button'], div[tabindex]");
+    var best = null, bestLen = 1e9, bestTop = false;
+    for (var i = 0; i < cand.length; i++) {
+      var el = cand[i];
+      if (!isInteractable(el)) continue;
+      if (el.querySelector("input")) continue; // skip wrappers holding the search box
+      var txt = norm(el.textContent || "");
+      if (!txt || txt.indexOf(nLeaf) === -1) continue;
+      var hasTop = nTop ? (txt.indexOf(nTop) !== -1) : false;
+      var len = txt.length;
+      if (hasTop && !bestTop) { best = el; bestLen = len; bestTop = true; }
+      else if (hasTop === bestTop && len < bestLen) { best = el; bestLen = len; }
+    }
+    return best;
   }
 
   async function vintedClickLevel(id, name) {
@@ -562,39 +631,79 @@
     return false;
   }
 
+  function vintedSetSearch(search, value) {
+    try {
+      setNativeValue(search, value);
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+      search.dispatchEvent(new Event("keyup", { bubbles: true }));
+    } catch (e) {}
+  }
+
   async function selectVintedCategory(draft) {
-    var path = draft.vinted_path || draft.vintedPath;
-    if (!path) return false;
-    var ids = String(path).split("/").filter(Boolean);
-    if (ids.length === 0) return false;
+    var ids = String(draft.vinted_path || draft.vintedPath || "").split("/").filter(Boolean);
     var names = String(draft.vinted_category || draft.vintedCategory || "")
-      .split(">").map(function (s) { return s.trim(); });
+      .split(">").map(function (s) { return s.trim(); }).filter(Boolean);
+    if (names.length === 0 && ids.length === 0) return false;
 
-    // Open the picker.
-    var input = firstBySelectors(["[data-testid='catalog-select-dropdown-input']"]);
-    if (!input) return false;
-    for (var o = 0; o < 12 && !vintedPickerContainer(); o++) {
-      try {
-        input.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-        input.click();
-        input.focus();
-      } catch (e) {}
-      await sleep(300);
+    // Open the picker if it is not already open. Desktop exposes a dropdown input;
+    // the mobile form opens a modal when its "Kategorie" row is tapped.
+    if (!vintedPickerContainer()) {
+      var opener = firstBySelectors([
+        "[data-testid='catalog-select-dropdown-input']",
+        "[data-testid='catalog-select-dropdown-chevron']"
+      ]);
+      if (!opener) {
+        var cands = document.querySelectorAll("[role='button'], button, a, div[tabindex], li");
+        for (var k = 0; k < cands.length; k++) {
+          if (!isInteractable(cands[k])) continue;
+          var lt = norm(cands[k].textContent || "");
+          if (lt === "kategorie" || (lt.indexOf("kategorie") !== -1 && lt.length < 22)) { opener = cands[k]; break; }
+        }
+      }
+      if (opener) {
+        for (var o = 0; o < 12 && !vintedPickerContainer(); o++) {
+          try {
+            opener.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+            opener.click();
+            if (opener.focus) opener.focus();
+          } catch (e) {}
+          await sleep(300);
+        }
+      }
     }
-    if (!vintedPickerContainer()) return false;
+    if (!vintedPickerContainer()) { console.warn("Velosia Vinted: Kategorie-Picker nicht gefunden/geöffnet"); return false; }
 
-    // Drill each level (ID first, name fallback). vintedClickLevel polls until the
-    // next level renders; a short settle after each click avoids racing against the
-    // previous level still being on screen.
-    for (var i = 0; i < ids.length; i++) {
-      var ok = await vintedClickLevel(ids[i], names[i] || "");
-      console.log("Velosia Vinted: Ebene " + i + " '" + (names[i] || "") + "' (id " + ids[i] + ") -> " + (ok ? "geklickt" : "NICHT gefunden"));
+    var leaf = names.length ? names[names.length - 1] : "";
+
+    // Strategy A (mobile) — search box: type the leaf, click the matching result.
+    var search = vintedCategorySearchInput();
+    if (search && leaf) {
+      vintedSetSearch(search, leaf);
+      for (var s = 0; s < 10; s++) {
+        await sleep(300);
+        var res = vintedFindSearchResult(vintedPickerContainer() || document.body, leaf, names[0] || "");
+        if (res) { try { vintedClickable(res).click(); } catch (e) {} break; }
+      }
+      for (var c2 = 0; c2 < 10; c2++) {
+        if (!vintedPickerContainer()) { console.log("Velosia Vinted: Kategorie über Suche gewählt ->", leaf); return true; }
+        await sleep(300);
+      }
+      // Search did not resolve it — clear the box so it doesn't filter the drill list.
+      vintedSetSearch(search, "");
+      await sleep(350);
+    }
+
+    // Strategy B — drill level by level (catalog-id icon first, then name).
+    if (!vintedPickerContainer()) return false;
+    var levels = Math.max(names.length, ids.length);
+    for (var i = 0; i < levels; i++) {
+      var ok = await vintedClickLevel(ids[i] || null, names[i] || "");
+      console.log("Velosia Vinted: Ebene " + i + " '" + (names[i] || "") + "' (id " + (ids[i] || "-") + ") -> " + (ok ? "geklickt" : "NICHT gefunden"));
       if (!ok) return false;
       await sleep(450);
     }
 
-    // Honest success: only report "Kategorie ✓" if the picker actually closed,
-    // i.e. a leaf was selected and the category is set.
+    // Honest success: only report "Kategorie ✓" if the picker actually closed.
     for (var v = 0; v < 12; v++) {
       if (!vintedPickerContainer()) return true;
       await sleep(300);
@@ -669,10 +778,48 @@
     } catch (e) {}
   }
 
+  // Vinted/Kleinanzeigen forms are partly DESKTOP layouts rendered in a mobile
+  // WebView: the page is wider/taller than the screen and pinch-/pan-zoomable, so
+  // position:fixed anchors to the (large) *layout* viewport, not the visible area.
+  // A plain inset:0 / right:16px overlay therefore lands off-screen. visualViewport
+  // gives us the visible sub-rectangle; we align every overlay to it and keep it in
+  // sync while the user scrolls or zooms.
+  function viewportRect() {
+    var vv = window.visualViewport;
+    if (vv) return { left: vv.offsetLeft, top: vv.offsetTop, width: vv.width, height: vv.height };
+    return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+  }
+
+  function bindViewport(fn) {
+    try { fn(); } catch (e) {}
+    try {
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", fn);
+        window.visualViewport.addEventListener("scroll", fn);
+      }
+      window.addEventListener("scroll", fn, { passive: true });
+      window.addEventListener("resize", fn);
+    } catch (e) {}
+    return fn;
+  }
+
+  function unbindViewport(fn) {
+    if (!fn) return;
+    try {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", fn);
+        window.visualViewport.removeEventListener("scroll", fn);
+      }
+      window.removeEventListener("scroll", fn);
+      window.removeEventListener("resize", fn);
+    } catch (e) {}
+  }
+
   // Full-screen, interaction-blocking backdrop shown WHILE the form is being
   // filled. It deliberately covers the page so the user does not tap fields the
-  // engine is still populating; the engine's own file-chooser click is a
-  // programmatic input.click(), so the backdrop never blocks the photo upload.
+  // engine is still populating, and it is pinned to the *visible* viewport so the
+  // spinner/text never end up off-screen on a scrolled desktop-layout page.
+  var _backdropSync = null;
   function ensureBackdrop() {
     injectStyleOnce();
     var bd = document.getElementById("velosia-backdrop");
@@ -680,8 +827,8 @@
     bd = document.createElement("div");
     bd.id = "velosia-backdrop";
     bd.style.cssText = [
-      "position:fixed", "inset:0", "z-index:2147483646",
-      "background:rgba(8,11,17,.78)", "-webkit-backdrop-filter:blur(2px)",
+      "position:fixed", "z-index:2147483646",
+      "background:rgba(8,11,17,.80)", "-webkit-backdrop-filter:blur(2px)",
       "backdrop-filter:blur(2px)", "display:flex", "flex-direction:column",
       "align-items:center", "justify-content:center", "gap:18px",
       "pointer-events:auto", "animation:velosia-fade .2s ease",
@@ -694,8 +841,15 @@
       '<div style="font-weight:700;font-size:16px;background:linear-gradient(135deg,#09b0b7,#ec4899);' +
         '-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">✨ Velosia</div>' +
       spinner +
-      '<div id="velosia-backdrop-text" style="color:#e2e8f0;font-size:14px;max-width:80vw;text-align:center;">Formular wird vorbereitet …</div>';
+      '<div id="velosia-backdrop-text" style="color:#e2e8f0;font-size:14px;max-width:80vw;text-align:center;padding:0 16px;">Formular wird vorbereitet …</div>';
     document.body.appendChild(bd);
+    _backdropSync = bindViewport(function () {
+      var r = viewportRect();
+      bd.style.left = r.left + "px";
+      bd.style.top = r.top + "px";
+      bd.style.width = r.width + "px";
+      bd.style.height = r.height + "px";
+    });
     return bd;
   }
 
@@ -705,6 +859,7 @@
   }
 
   function removeBackdrop() {
+    unbindViewport(_backdropSync); _backdropSync = null;
     var bd = document.getElementById("velosia-backdrop");
     if (!bd) return;
     try {
@@ -714,9 +869,10 @@
     } catch (e) { try { bd.remove(); } catch (e2) {} }
   }
 
-  // Floating, viewport-anchored arrow that points at the publish button and keeps
-  // tracking it on scroll/resize, so the user immediately knows what to tap once
-  // the form is filled (manual mode only).
+  // Floating arrow that points at the publish button and keeps tracking it on
+  // scroll/zoom, so the user immediately knows what to tap once the form is filled
+  // (manual mode only). getBoundingClientRect and position:fixed share the layout-
+  // viewport coordinate space, so the arrow stays glued to the button under pan/zoom.
   function pointToButton(btn) {
     if (!btn) return;
     injectStyleOnce();
@@ -737,18 +893,16 @@
         "white-space:nowrap"
       ].join(";");
       document.body.appendChild(a);
-      function place() {
+      bindViewport(function () {
         var r = btn.getBoundingClientRect();
         var top = r.top - 46;
         if (top < 8) top = r.bottom + 10; // not enough room above -> sit below
         var left = r.left + r.width / 2 - a.offsetWidth / 2;
-        left = Math.max(8, Math.min(window.innerWidth - a.offsetWidth - 8, left));
+        var vp = viewportRect();
+        left = Math.max(vp.left + 8, Math.min(vp.left + vp.width - a.offsetWidth - 8, left));
         a.style.top = top + "px";
         a.style.left = left + "px";
-      }
-      place();
-      window.addEventListener("scroll", place, { passive: true });
-      window.addEventListener("resize", place);
+      });
     }, 650);
   }
 
@@ -760,8 +914,8 @@
       var box = document.createElement("div");
       box.id = "velosia-overlay";
       box.style.cssText = [
-        "position:fixed", "z-index:2147483647", "right:16px", "bottom:16px",
-        "width:300px", "max-width:calc(100vw - 32px)", "background:#0e121a",
+        "position:fixed", "z-index:2147483647", "width:300px", "max-width:86vw",
+        "background:#0e121a",
         "color:#f8fafc", "border:1px solid rgba(9,176,183,.35)", "border-radius:14px",
         "box-shadow:0 12px 40px rgba(0,0,0,.55)", "padding:14px 16px",
         "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
@@ -797,8 +951,15 @@
         filledHtml + photoHtml + manualHtml + footer;
 
       document.body.appendChild(box);
+      // Anchor to the visible viewport's bottom-right (tracks scroll/zoom) so the
+      // panel never drifts off a wide/tall desktop-layout page.
+      var sync = bindViewport(function () {
+        var r = viewportRect();
+        box.style.left = Math.max(r.left + 8, r.left + r.width - box.offsetWidth - 16) + "px";
+        box.style.top = (r.top + r.height - box.offsetHeight - 16) + "px";
+      });
       var close = document.getElementById("velosia-overlay-close");
-      if (close) close.addEventListener("click", function () { box.remove(); });
+      if (close) close.addEventListener("click", function () { unbindViewport(sync); box.remove(); });
       if (result.phase !== "category" && !autoSubmit) {
         setTimeout(function () { if (box && box.parentNode) box.style.opacity = "0.96"; }, 50);
       }
@@ -837,16 +998,19 @@
     if (descEl) descEl.__velosiaKnown = true;
     if (priceEl) priceEl.__velosiaKnown = true;
 
-    // Photos first — triggering the file chooser early (before the slower
-    // attribute / category steps) makes the upload feel instant and gives the
-    // native WebView host the most time to render the photo preview.
+    // Photos first — injecting them early (before the slower attribute / category
+    // steps) makes the upload feel instant and gives the page the most time to
+    // render the previews. Prefer the DataTransfer path everywhere (it uploads ALL
+    // draft photos and needs no user gesture); the native chooser is only a fallback
+    // for environments without DataTransfer or resolvable URLs.
     setBackdrop("Fotos werden übertragen …");
     var photos = 0;
-    if (options.imageMode === "native") {
-      photos = triggerNativeFileChooser();
-    } else {
-      var urls = resolveImageUrls(draft, options.backendUrl);
+    var urls = resolveImageUrls(draft, options.backendUrl);
+    if (typeof DataTransfer !== "undefined" && urls.length > 0) {
       photos = await uploadPhotosDataTransfer(urls);
+      if (photos === 0 && options.imageMode === "native") photos = triggerNativeFileChooser();
+    } else if (options.imageMode === "native") {
+      photos = triggerNativeFileChooser();
     }
 
     if (platform === "kleinanzeigen") {
@@ -884,7 +1048,7 @@
     if (platform === "vinted") {
       setBackdrop("Kategorie wird ausgewählt …");
       var vintedCatOk = false;
-      if (draft.vinted_path || draft.vintedPath) {
+      if (draft.vinted_path || draft.vintedPath || draft.vinted_category || draft.vintedCategory) {
         try { vintedCatOk = await selectVintedCategory(draft); } catch (e) { vintedCatOk = false; }
         categoryOk = vintedCatOk;
       }
