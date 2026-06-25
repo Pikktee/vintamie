@@ -660,7 +660,7 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
           aria-expanded={showDetected}
         >
           <Tag size={16} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-          <span className="detected-toggle-label">Automatisch erkannt</span>
+          <span className="detected-toggle-label">Weitere Angaben</span>
           {filledCount > 0 && <span className="detected-toggle-count">{filledCount}</span>}
           <ChevronDown
             size={18}
