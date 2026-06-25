@@ -645,8 +645,8 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
   // breadcrumb that drives the autofill; a free-text edit would break the path.
   const renderDetectedInfo = () => {
     const rows = [
-      { key: 'ka', name: 'Kategorie · Kleinanzeigen', value: draft.category },
-      { key: 'vinted', name: 'Kategorie · Vinted', value: draft.vinted_category },
+      { key: 'ka', name: 'Kategorie', sub: 'Kleinanzeigen', value: draft.category },
+      { key: 'vinted', name: 'Kategorie', sub: 'Vinted', value: draft.vinted_category },
       ...detectedAttributes.map(([k, v]) => ({ key: `attr-${k}`, name: k, value: String(v) })),
     ];
     const filledCount = rows.filter((r) => r.value).length;
@@ -671,9 +671,12 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
 
         {showDetected && (
           <div className="detected-body">
-            {rows.map(({ key, name, value }) => (
+            {rows.map(({ key, name, sub, value }) => (
               <div key={key} className="detected-row">
-                <span className="detected-row-label">{name}</span>
+                <span className="detected-row-label">
+                  {name}
+                  {sub && <span className="detected-row-sublabel">{sub}</span>}
+                </span>
                 {value ? (
                   <span className="detected-row-value">{value}</span>
                 ) : (
