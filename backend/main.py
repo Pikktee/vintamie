@@ -115,7 +115,7 @@ def run_migrations():
 
 run_migrations()
 
-app = FastAPI(title="Velosia API", version="Vinted-Veroeffentlichung: Android reicht jetzt das Auth-Token an die Autofill-Engine weiter, damit die Listing-Erfassung (/api/listings/published) authentifiziert ist und der Status angezeigt wird.1")
+app = FastAPI(title="Velosia API", version="Vinted/KA-Veroeffentlichung: App erkennt die veroeffentlichte Anzeige nativ (auch bei Vinted-SPA-Navigation via doUpdateVisitedHistory), erfasst sie authentifiziert per okhttp, schliesst die WebView automatisch und zeigt eine Erfolgsmeldung -> Status erscheint zuverlaessig im Dashboard")
 
 UPLOAD_DIR = "/data/uploads" if os.path.isdir("/data") else "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)

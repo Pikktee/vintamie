@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "Vinted-Veroeffentlichung: Android reicht jetzt das Auth-Token an die Autofill-Engine weiter, damit die Listing-Erfassung (/api/listings/published) authentifiziert ist und der Status angezeigt wird.1",
+  "version": "Vinted/KA-Veroeffentlichung: App erkennt die veroeffentlichte Anzeige nativ (auch bei Vinted-SPA-Navigation via doUpdateVisitedHistory), erfasst sie authentifiziert per okhttp, schliesst die WebView automatisch und zeigt eine Erfolgsmeldung -> Status erscheint zuverlaessig im Dashboard",
   "type": "module",
   "scripts": {
     "dev": "vite",

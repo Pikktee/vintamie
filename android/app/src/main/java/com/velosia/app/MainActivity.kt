@@ -48,10 +48,14 @@ class MainActivity : AppCompatActivity() {
 
     private var activeDraftJson: String? = null
     private var activePlatform: String? = null
-    // The JWT of the user who triggered the autofill. Handed to the engine so its
-    // listing-capture POST (/api/listings/published) is authenticated — without it
-    // the published listing is never recorded and the dashboard shows no status.
+    private var activeDraftId: Int = -1
+    // The JWT of the user who triggered the autofill. Used by the native listing
+    // capture (/api/listings/published) so the published listing is recorded and
+    // the dashboard shows its status.
     private var authToken: String? = null
+    // Guards the one-shot native capture: once we detect the published listing URL
+    // and POST it, we must not fire again for the same session.
+    private var hasCaptured = false
     // All draft photos, fetched server-side (okhttp, no browser CORS) and base64
     // data-URL encoded, handed to the autofill engine via the JS bridge so it can
     // inject every photo without a file chooser or a cross-origin fetch.
@@ -127,6 +131,15 @@ class MainActivity : AppCompatActivity() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 // Keep navigation within the WebView
                 return false
+            }
+
+            // Vinted publishes via SPA navigation (pushState, no document reload), so
+            // onPageFinished never fires for the resulting /items/<id> page. This hook
+            // DOES fire on history changes, so it is where we detect a published listing
+            // — for both Vinted (SPA) and Kleinanzeigen (full nav) — and capture it.
+            override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+                super.doUpdateVisitedHistory(view, url, isReload)
+                maybeCapturePublishedListing(url)
             }
 
             override fun onPageFinished(view: WebView, url: String) {
@@ -233,7 +246,9 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this@MainActivity, "Lade Angebot #$draftId...", Toast.LENGTH_SHORT).show()
                 hasAutoFilled = false
                 hasAutoCategory = false
+                hasCaptured = false
                 authToken = token
+                activeDraftId = draftId
                 draftImageDataUrls = emptyList()
                 prefetchRemoteEngine()
                 fetchUserProfile(token)
@@ -412,9 +427,11 @@ class MainActivity : AppCompatActivity() {
     private fun closeListingView() {
         activeDraftJson = null
         activePlatform = null
+        activeDraftId = -1
         draftImageDataUrls = emptyList()
         hasAutoFilled = false
         hasAutoCategory = false
+        hasCaptured = false
         fabClose.visibility = View.GONE
         webView.loadUrl(frontendUrl)
     }
@@ -495,6 +512,74 @@ class MainActivity : AppCompatActivity() {
         webView.evaluateJavascript(engine) {
             webView.evaluateJavascript(caller, null)
         }
+    }
+
+    // Detect the *published* listing page during an active autofill session and, on the
+    // first hit, record it on the backend natively (okhttp: has the user's token, no
+    // browser CORS), then close the WebView and confirm success in the app. Vinted item:
+    // /items/<id>-slug (NOT /items/new); Kleinanzeigen ad: /s-anzeige/<slug>/<id>-…
+    private fun maybeCapturePublishedListing(url: String) {
+        if (hasCaptured || activeDraftId < 0) return
+        val platform = activePlatform ?: return
+        val token = authToken ?: return
+
+        val listingId = when (platform) {
+            "vinted" -> {
+                if (url.contains("/items/new")) null
+                else Regex("/items/(\\d+)").find(url)?.groupValues?.get(1)
+            }
+            "kleinanzeigen" -> Regex("/s-anzeige/[^/]+/(\\d+)").find(url)?.groupValues?.get(1)
+            else -> null
+        } ?: return
+
+        // Strip query/fragment so we store a clean canonical listing URL.
+        val cleanUrl = url.substringBefore('?').substringBefore('#')
+
+        hasCaptured = true
+        capturePublishedListing(activeDraftId, platform, listingId, cleanUrl, token)
+    }
+
+    // POST the published listing to the backend, then return to the dashboard with a
+    // success message. Best-effort: even if the POST fails we still close the WebView
+    // (the listing IS live on the platform), but only show the celebratory message on
+    // a confirmed capture so the dashboard genuinely reflects the new status.
+    private fun capturePublishedListing(
+        draftId: Int, platform: String, listingId: String, listingUrl: String, token: String
+    ) {
+        val json = JSONObject().apply {
+            put("draft_id", draftId)
+            put("platform", platform)
+            put("listing_id", listingId)
+            put("listing_url", listingUrl)
+        }.toString()
+        val body = json.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
+        val request = Request.Builder()
+            .url("$backendUrl/api/listings/published")
+            .header("Authorization", "Bearer $token")
+            .post(body)
+            .build()
+
+        okHttpClient.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread { finishAfterPublish(false) }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    val ok = response.isSuccessful
+                    runOnUiThread { finishAfterPublish(ok) }
+                }
+            }
+        })
+    }
+
+    // Tear down the listing session and go back to the Velosia dashboard (which reloads
+    // the drafts and so shows the freshly captured "online" status). A short delay lets
+    // the user see the platform's own "published" confirmation before we whisk them away.
+    private fun finishAfterPublish(captured: Boolean) {
+        val msg = if (captured) "Artikel veröffentlicht! 🎉" else "Artikel veröffentlicht."
+        Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+        webView.postDelayed({ closeListingView() }, 1500)
     }
 
     private fun checkCameraPermission() {
