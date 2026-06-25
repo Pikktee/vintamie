@@ -763,6 +763,45 @@
     } catch (e) {}
   }
 
+  // Diagnostic: the modal's navigation/header bar (back arrow / title / X / "Fertig")
+  // — the controls deliberately excluded elsewhere, which is where the close/confirm
+  // most likely lives.
+  function vintedDiagNav() {
+    try {
+      var heads = document.querySelectorAll("[data-testid^='catalog-navigation'], [class*='Navigation'], [class*='__modal'], [class*='Modal'], [class*='__header'], [role='dialog']");
+      var out = [];
+      for (var h = 0; h < heads.length && out.length < 14; h++) {
+        var els = heads[h].querySelectorAll("button, [role='button'], a, [aria-label], [data-testid]");
+        for (var i = 0; i < els.length && out.length < 14; i++) {
+          var el = els[i];
+          if (!isInteractable(el)) continue;
+          var text = norm(el.textContent || "");
+          var label = norm(el.getAttribute("aria-label") || "");
+          var tid = el.getAttribute("data-testid") || "";
+          var t = text || label || tid;
+          if (!t || t.length > 30) continue;
+          out.push(el.tagName + " '" + t.slice(0, 18) + "'" + (tid ? " tid=" + tid.slice(0, 22) : ""));
+        }
+      }
+      console.log("Velosia Vinted DIAGNAV [" + out.length + "]: " + (out.length ? out.join("  ||  ") : "nichts"));
+    } catch (e) {}
+  }
+
+  // Diagnostic: the currently visible option-row titles (which level are we on?).
+  function vintedDiagOptions() {
+    try {
+      var titles = document.querySelectorAll(".web_ui__Cell__title, [class*='Cell__title']");
+      var out = [];
+      for (var i = 0; i < titles.length && out.length < 12; i++) {
+        if (!isInteractable(titles[i])) continue;
+        if (titles[i].closest("[role='tab'], [role='tablist'], header, nav")) continue;
+        var t = norm(titles[i].textContent || "");
+        if (t) out.push("'" + t.slice(0, 22) + "'");
+      }
+      console.log("Velosia Vinted DIAGOPTIONS [" + out.length + "]: " + out.join(" "));
+    } catch (e) {}
+  }
+
   // Whether the picker modal is actually VISIBLE on screen. The "Finde eine
   // Kategorie" input lingers hidden in the DOM after the modal closes, so a plain
   // "does the input exist" check wrongly reports the picker still open — we must
@@ -828,7 +867,7 @@
       for (var v = 0; v < 14 && vintedModalVisible(); v++) await sleep(300);
       var stillOpen = vintedModalVisible();
       console.log("Velosia Vinted: alle Ebenen inkl. Blatt geklickt, Modal sichtbar=" + stillOpen + " — Kategorie gesetzt");
-      if (stillOpen) { vintedDiagModal(); vintedDiag(names[names.length - 1] || ""); }
+      if (stillOpen) { vintedDiagNav(); vintedDiagOptions(); }
       return true;
     }
 
