@@ -586,38 +586,49 @@
     return null;
   }
 
+  // The picker modal scoped as tightly as possible. We must NOT fall back to
+  // document.body: the page BEHIND the open modal still holds catalog browse links
+  // (<a href="/catalog/4833-…">) with the exact same category text, and clicking one
+  // navigates away from items/new (observed live). So we scope to the dialog/sheet
+  // ancestor of the search box, or the highest non-body ancestor of it.
   function vintedPickerContainer() {
     var d = document.querySelector("[data-testid='catalog-select-dropdown-content']");
     if (d) return d;
     var search = vintedCategorySearchInput();
-    if (search) {
-      return search.closest("[role='dialog'], [class*='odal'], [class*='ialog'], [class*='heet'], [class*='verlay']") ||
-             search.parentElement || document.body;
+    if (!search) return null;
+    var explicit = search.closest("[role='dialog'], [aria-modal='true'], [class*='odal'], [class*='ialog'], [class*='heet'], [class*='rawer']");
+    if (explicit) return explicit;
+    // Walk up to the highest ancestor that is still below <body> (the modal root).
+    var el = search, best = search.parentElement || search;
+    while (el && el.parentElement && el.parentElement !== document.body) {
+      best = el.parentElement;
+      el = el.parentElement;
     }
-    return null;
+    return best;
   }
 
+  // Resolve the actual clickable element — but NEVER an <a href> (navigation).
   function vintedClickable(el) {
-    return (el.closest && el.closest("[role='button'],button,li,a,div[tabindex]")) || el.parentElement || el;
+    return (el.closest && el.closest("button, li, [role='button'], [role='option'], [role='menuitem'], div[tabindex]")) || el;
   }
 
   // Robust, layout-agnostic match for a category row by its visible label. Works for
   // the desktop web_ui rows AND the mobile React rows (often a plain <div> with an
-  // onClick and NO role/tabindex, which the old selector-based finder missed).
-  // Returns the DEEPEST element whose normalized own text equals the name (so we
-  // click the actual row, not a big wrapper). Skips our own overlay, the nav header
-  // and any wrapper that contains the search box.
+  // onClick and NO role/tabindex). Returns the DEEPEST element whose normalized own
+  // text equals the name. CRITICAL: it never returns a navigating link or anything in
+  // the page nav/header — only true in-picker option rows — so we never leave the form.
   function vintedRowMatch(root, name) {
     var target = norm(name);
     if (!target) return null;
-    var nodes = root.querySelectorAll("a, button, li, div, span, p, [role='button'], [role='option'], [role='menuitem']");
+    var nodes = root.querySelectorAll("button, li, div, span, p, [role='button'], [role='option'], [role='menuitem']");
     var exact = [], partial = null;
     for (var i = 0; i < nodes.length; i++) {
       var el = nodes[i];
       if (!isInteractable(el)) continue;
       if (el.closest("#velosia-backdrop, #velosia-overlay, #velosia-arrow")) continue;
-      if (el.closest("[data-testid^='catalog-navigation']")) continue;
-      if (el.querySelector("input, textarea")) continue;
+      if (el.closest("a[href]")) continue; // never a catalog browse link
+      if (el.closest("header, nav, footer, [role='navigation'], [role='tablist'], [role='tab'], [data-testid^='catalog-navigation']")) continue;
+      if (el.querySelector("input, textarea, a[href]")) continue; // skip wrappers holding the search box / links
       var t = norm(el.textContent || "");
       if (!t) continue;
       if (t === target) exact.push(el);
@@ -632,11 +643,13 @@
 
   async function vintedClickLevel(id, name) {
     for (var t = 0; t < 16; t++) {
-      var c = vintedPickerContainer() || document.body;
-      var icon = id ? c.querySelector("[data-testid='catalog-icon-" + id + "']") : null;
-      if (icon && isInteractable(icon)) { vintedClickable(icon).click(); return true; }
-      var row = vintedRowMatch(c, name) || vintedRowMatch(document.body, name);
-      if (row) { vintedClickable(row).click(); return true; }
+      var c = vintedPickerContainer();
+      if (c) {
+        var icon = id ? c.querySelector("[data-testid='catalog-icon-" + id + "']") : null;
+        if (icon && isInteractable(icon)) { vintedClickable(icon).click(); return true; }
+        var row = vintedRowMatch(c, name);
+        if (row) { vintedClickable(row).click(); return true; }
+      }
       await sleep(350);
     }
     return false;
@@ -688,9 +701,13 @@
 
     // Strategy A — drill level by level (catalog-id icon first, then robust name
     // match). This is the most deterministic: each level only shows its own children.
+    var onForm = function () { return location.pathname.indexOf("/items/new") !== -1; };
     var levels = Math.max(names.length, ids.length);
     var drilled = true;
     for (var i = 0; i < levels; i++) {
+      // Safety: if a click ever navigated us off the form (e.g. a stray browse link),
+      // stop immediately instead of drilling on the wrong page.
+      if (!onForm()) { console.warn("Velosia Vinted: Formular verlassen (" + location.pathname + ") — Abbruch"); return false; }
       var ok = await vintedClickLevel(ids[i] || null, names[i] || "");
       console.log("Velosia Vinted: Ebene " + i + " '" + (names[i] || "") + "' (id " + (ids[i] || "-") + ") -> " + (ok ? "geklickt" : "NICHT gefunden"));
       if (!ok) { drilled = false; break; }
@@ -1031,6 +1048,7 @@
     }
     // 3) Last-resort native file chooser.
     if (photos === 0 && options.imageMode === "native") photos = triggerNativeFileChooser();
+    try { console.log("Velosia: Fotos übertragen -> " + photos + " (Modus " + options.imageMode + ")"); } catch (e) {}
 
     if (platform === "kleinanzeigen") {
       selectKleinanzeigenOffer();
