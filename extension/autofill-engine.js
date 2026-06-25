@@ -710,18 +710,26 @@
     return best;
   }
 
-  // Resolve the actual clickable element — but NEVER an <a href> (navigation).
+  // Resolve the actual clickable element — but NEVER an <a href> (navigation). Beyond
+  // buttons/roles we also accept a <label> or a web_ui Cell wrapper, because some Vinted
+  // pickers (e.g. the size BottomSheet) render option rows as plain Cells / labels with
+  // a hidden radio rather than role=button elements.
   function vintedClickable(el) {
-    return (el.closest && el.closest("button, li, [role='button'], [role='option'], [role='menuitem'], div[tabindex]")) || el;
+    return (el.closest && el.closest(
+      "button, li, [role='button'], [role='option'], [role='menuitem'], [role='radio'], label, div[tabindex], [class*='Cell__cell'], [class*='Cell__default']"
+    )) || el;
   }
 
   // Robust click for picker option rows whose React handler may sit on a label-wrapped
-  // hidden radio/checkbox rather than the visible row: prefer the input, and fire a
-  // full mousedown→mouseup→click sequence (some Vinted sheets ignore a bare .click()).
+  // hidden radio/checkbox rather than the visible row: prefer clicking the input itself
+  // (toggles the radio), else fire a full mousedown→mouseup→click sequence on the
+  // resolved clickable cell (some Vinted sheets ignore a bare .click() on the text div).
   function vintedRobustClick(el) {
-    var input = (el.querySelector && el.querySelector("input[type='radio'], input[type='checkbox']")) || null;
-    var target = input || vintedClickable(el);
+    var target = vintedClickable(el);
+    var input = (target.querySelector && target.querySelector("input[type='radio'], input[type='checkbox']")) ||
+                (el.querySelector && el.querySelector("input[type='radio'], input[type='checkbox']")) || null;
     var opts = { bubbles: true, cancelable: true, view: window };
+    if (input) { try { input.click(); return; } catch (e) {} }
     try { target.dispatchEvent(new MouseEvent("mousedown", opts)); } catch (e) {}
     try { target.dispatchEvent(new MouseEvent("mouseup", opts)); } catch (e) {}
     try { target.click(); } catch (e) { try { target.dispatchEvent(new MouseEvent("click", opts)); } catch (e2) {} }
@@ -1176,7 +1184,17 @@
       return false;
     }
     var rowText = norm(picked.row.textContent || "").slice(0, 24);
-    if (verbose) { vintedDiagPicker(logName); vintedDiagCommit(logName + "-vor", picked.row); }
+    if (verbose) {
+      try {
+        var ct = vintedClickable(picked.row);
+        console.log("Velosia Vinted ROWINFO " + logName + ": row=" + picked.row.tagName + "." + ("" + picked.row.className).slice(0, 28) +
+          " click=" + ct.tagName + (ct.getAttribute && ct.getAttribute("role") ? "[role=" + ct.getAttribute("role") + "]" : "") +
+          "." + ("" + (ct.className || "")).slice(0, 40) +
+          " radio=" + !!(ct.querySelector && ct.querySelector("input[type='radio'], input[type='checkbox']")) +
+          " forLabel=" + (ct.tagName === "LABEL" ? (ct.getAttribute("for") || "y") : "-"));
+      } catch (e) {}
+      vintedDiagCommit(logName + "-vor", picked.row);
+    }
     vintedRobustClick(picked.row);
     // Some Vinted dropdowns commit on click; the modal variant needs the "Fertig" save.
     await sleep(300);
