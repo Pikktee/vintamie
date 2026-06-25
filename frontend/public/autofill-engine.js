@@ -556,6 +556,80 @@
     }
   }
 
+  // Kleinanzeigen "Zustand" — Velosia captures the condition, so set it directly
+  // instead of relying on the server having backfilled it into the attributes (which
+  // only happens when the category resolved + the AI/validator emitted the field).
+  // Maps the free-text condition to KA's fixed option set (Neu / Sehr Gut / Gut /
+  // In Ordnung / Defekt). Mirrors the backend CONDITION_TO_ZUSTAND table.
+  var KA_CONDITION_MAP = {
+    "neu": "Neu",
+    "neuwertig": "Sehr Gut",
+    "sehr gut": "Sehr Gut",
+    "gut": "Gut",
+    "zufriedenstellend": "In Ordnung",
+    "in ordnung": "In Ordnung",
+    "befriedigend": "In Ordnung",
+    "defekt": "Defekt"
+  };
+
+  // Recognise the Zustand <select> by its OPTION fingerprint (it offers Neu …
+  // Defekt) — far more reliable than label matching, which the form often omits.
+  function isKleinanzeigenConditionSelect(sel) {
+    var hasNeu = false, hasDefekt = false, mid = 0;
+    for (var i = 0; i < sel.options.length; i++) {
+      var t = norm(sel.options[i].textContent);
+      if (t === "neu") hasNeu = true;
+      else if (t === "defekt") hasDefekt = true;
+      else if (t === "sehr gut" || t === "gut" || t === "in ordnung") mid++;
+    }
+    return (hasNeu && hasDefekt) || (hasNeu && mid >= 1) || mid >= 2;
+  }
+
+  function selectKleinanzeigenCondition(draft) {
+    var cond = norm(draft.condition || "");
+    if (!cond) return false;
+    var target = KA_CONDITION_MAP[cond];
+    if (!target) { console.log("Velosia KA: Zustand '" + cond + "' ohne Entsprechung — manuell"); return false; }
+
+    var selects = Array.prototype.slice.call(document.querySelectorAll("select"));
+    // Prefer a select whose label mentions "zustand"; else fall back to the fingerprint.
+    var sel = null;
+    for (var i = 0; i < selects.length; i++) {
+      if (selects[i].__velosiaKnown) continue;
+      if (labelTextFor(selects[i]).indexOf("zustand") !== -1) { sel = selects[i]; break; }
+    }
+    if (!sel) {
+      for (var j = 0; j < selects.length; j++) {
+        if (selects[j].__velosiaKnown) continue;
+        if (isKleinanzeigenConditionSelect(selects[j])) { sel = selects[j]; break; }
+      }
+    }
+    if (sel) {
+      var opt = pickOption(sel, target);
+      if (opt) {
+        sel.value = opt.value;
+        sel.__velosiaKnown = true;
+        sel.dispatchEvent(new Event("change", { bubbles: true }));
+        console.log("Velosia KA: Zustand '" + target + "' im Dropdown gesetzt");
+        return true;
+      }
+    }
+
+    // Some categories render Zustand as a row of button/radio "pills" instead.
+    var pills = document.querySelectorAll("button, [role='radio'], label, input[type='radio']");
+    var nt = norm(target);
+    for (var p = 0; p < pills.length; p++) {
+      var el = pills[p];
+      if (!isInteractable(el)) continue;
+      if (el.closest("#velosia-backdrop, #velosia-overlay")) continue;
+      if (norm(el.textContent || el.getAttribute("aria-label") || "") === nt) {
+        try { el.click(); console.log("Velosia KA: Zustand '" + target + "' per Pill gesetzt"); return true; } catch (e) {}
+      }
+    }
+    console.log("Velosia KA: Zustand-Feld nicht gefunden — manuell");
+    return false;
+  }
+
   // ----------------------------------------------------------------------------
   // Vinted category picker (in-DOM dropdown, drilled level by level)
   // ----------------------------------------------------------------------------
@@ -1337,6 +1411,15 @@
       var dedupAttr = attrFilled.filter(function (v, idx, arr) { return arr.indexOf(v) === idx; });
       attrCount = dedupAttr.length;
       dedupAttr.forEach(function (lbl) { filled.push(lbl); });
+
+      // Zustand: set it directly from draft.condition (independent of whether the
+      // server backfilled it as an attribute). Skips the select if fillAttributes
+      // already handled it (marked __velosiaKnown). Report it once, either way.
+      var zustandDone = filled.some(function (l) { return norm(l).indexOf("zustand") !== -1; });
+      if (!zustandDone && draft.condition) {
+        if (selectKleinanzeigenCondition(draft)) { filled.push("Zustand"); zustandDone = true; }
+      }
+      if (!zustandDone && draft.condition) manual.push("Zustand");
     }
 
     // Vinted: drive the category picker automatically (drilled by catalog id / name),
