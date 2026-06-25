@@ -48,6 +48,11 @@ class MainActivity : AppCompatActivity() {
 
     private var activeDraftJson: String? = null
     private var activeImageUri: Uri? = null
+    // Armed once per "Befüllen" run: when true the next file chooser opened by the
+    // page (the engine's programmatic input.click()) is answered with the prepared
+    // draft photo instead of the system picker. The URI itself stays valid for the
+    // whole draft session so a retry never falls back to an empty picker.
+    private var armImageChooser = false
     private var activePlatform: String? = null
     private var userZip: String? = null
     // Guards the automatic one-shot fill so it does not re-trigger on every SPA page event
@@ -135,14 +140,15 @@ class MainActivity : AppCompatActivity() {
                     // (default off -> the user reviews and clicks publish himself).
                     if (isFormPage && !hasAutoFilled) {
                         hasAutoFilled = true
-                        // The forms render dynamically; give them a moment before injecting.
-                        webView.postDelayed({ injectAutofill(autoSubmit = autoSubmitSetting) }, 1200)
+                        // The forms render dynamically; give them a brief moment before
+                        // injecting (the engine then polls for the fields itself).
+                        webView.postDelayed({ injectAutofill(autoSubmit = autoSubmitSetting) }, 600)
                     }
                     // On the category picker, let the engine pre-select the category via
                     // the keyword suggestion field so the user reaches the form hands-free.
                     if (isKleinanzeigenCategory && !hasAutoCategory) {
                         hasAutoCategory = true
-                        webView.postDelayed({ injectAutofill(autoSubmit = false) }, 1200)
+                        webView.postDelayed({ injectAutofill(autoSubmit = false) }, 600)
                     }
                 } else {
                     fabFill.visibility = View.GONE
@@ -157,13 +163,18 @@ class MainActivity : AppCompatActivity() {
                 filePathCallback: ValueCallback<Array<Uri>>,
                 fileChooserParams: FileChooserParams
             ): Boolean {
-                // Intercept file chooser and supply the draft photo programmatically
-                activeImageUri?.let { uri ->
-                    filePathCallback.onReceiveValue(arrayOf(uri))
-                    // Clear the URI so next file chooser clicks can open standard dialog
-                    activeImageUri = null
-                    Toast.makeText(this@MainActivity, "Foto automatisch hochgeladen!", Toast.LENGTH_SHORT).show()
-                    return true
+                // Intercept the file chooser the engine opens during autofill and
+                // supply the draft photo programmatically. Only when armed (i.e. a
+                // fill is in progress) — manual "add photo" taps still open the
+                // normal picker. The URI is kept for the whole session so a second
+                // fill / retry never falls back to an empty picker.
+                if (armImageChooser) {
+                    activeImageUri?.let { uri ->
+                        armImageChooser = false
+                        filePathCallback.onReceiveValue(arrayOf(uri))
+                        Toast.makeText(this@MainActivity, "Foto automatisch hochgeladen!", Toast.LENGTH_SHORT).show()
+                        return true
+                    }
                 }
                 
                 // Open standard system file picker to select images
@@ -222,6 +233,9 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this@MainActivity, "Lade Angebot #$draftId...", Toast.LENGTH_SHORT).show()
                 hasAutoFilled = false
                 hasAutoCategory = false
+                // Drop any photo/arming left over from a previous draft session.
+                activeImageUri = null
+                armImageChooser = false
                 fetchUserProfile(token)
                 fetchDraftAndPrepare(draftId, platform, token)
             }
@@ -374,6 +388,7 @@ class MainActivity : AppCompatActivity() {
     private fun closeListingView() {
         activeDraftJson = null
         activeImageUri = null
+        armImageChooser = false
         activePlatform = null
         hasAutoFilled = false
         hasAutoCategory = false
@@ -403,6 +418,9 @@ class MainActivity : AppCompatActivity() {
     // publishes the listing automatically.
     private fun injectAutofill(autoSubmit: Boolean) {
         val draftJson = activeDraftJson ?: return
+        // Arm the file-chooser interception for this fill so the prepared photo is
+        // supplied automatically when the engine clicks the upload input.
+        armImageChooser = true
         val escapedJson = draftJson.replace("\\", "\\\\").replace("'", "\\'")
         val zip = userZip?.replace("\\", "\\\\")?.replace("'", "\\'") ?: ""
         val engine = readEngineJs()

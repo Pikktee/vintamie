@@ -36,7 +36,7 @@
   // and in the extension it is a persistent content script — never redefine.
   if (window.__velosia && window.__velosia.__loaded) return;
 
-  var VERSION = "2.5.0";
+  var VERSION = "2.6.0";
 
   // ----------------------------------------------------------------------------
   // Low level helpers
@@ -653,6 +653,105 @@
   // to see exactly which fields were detected and which need a manual touch.
   // ----------------------------------------------------------------------------
 
+  // One-time injection of the keyframe animations used by the backdrop spinner,
+  // the bouncing "publish here" arrow and the pulsing button highlight.
+  function injectStyleOnce() {
+    if (document.getElementById("velosia-style")) return;
+    try {
+      var s = document.createElement("style");
+      s.id = "velosia-style";
+      s.textContent =
+        "@keyframes velosia-spin{to{transform:rotate(360deg)}}" +
+        "@keyframes velosia-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(9px)}}" +
+        "@keyframes velosia-pulse{0%,100%{box-shadow:0 0 0 4px rgba(9,176,183,.6)}50%{box-shadow:0 0 0 10px rgba(9,176,183,.12)}}" +
+        "@keyframes velosia-fade{from{opacity:0}to{opacity:1}}";
+      (document.head || document.documentElement).appendChild(s);
+    } catch (e) {}
+  }
+
+  // Full-screen, interaction-blocking backdrop shown WHILE the form is being
+  // filled. It deliberately covers the page so the user does not tap fields the
+  // engine is still populating; the engine's own file-chooser click is a
+  // programmatic input.click(), so the backdrop never blocks the photo upload.
+  function ensureBackdrop() {
+    injectStyleOnce();
+    var bd = document.getElementById("velosia-backdrop");
+    if (bd) return bd;
+    bd = document.createElement("div");
+    bd.id = "velosia-backdrop";
+    bd.style.cssText = [
+      "position:fixed", "inset:0", "z-index:2147483646",
+      "background:rgba(8,11,17,.78)", "-webkit-backdrop-filter:blur(2px)",
+      "backdrop-filter:blur(2px)", "display:flex", "flex-direction:column",
+      "align-items:center", "justify-content:center", "gap:18px",
+      "pointer-events:auto", "animation:velosia-fade .2s ease",
+      "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"
+    ].join(";");
+    var spinner = '<div style="width:46px;height:46px;border-radius:50%;' +
+      'border:4px solid rgba(255,255,255,.15);border-top-color:#09b0b7;' +
+      'animation:velosia-spin .8s linear infinite;"></div>';
+    bd.innerHTML =
+      '<div style="font-weight:700;font-size:16px;background:linear-gradient(135deg,#09b0b7,#ec4899);' +
+        '-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">✨ Velosia</div>' +
+      spinner +
+      '<div id="velosia-backdrop-text" style="color:#e2e8f0;font-size:14px;max-width:80vw;text-align:center;">Formular wird vorbereitet …</div>';
+    document.body.appendChild(bd);
+    return bd;
+  }
+
+  function setBackdrop(text) {
+    var t = document.getElementById("velosia-backdrop-text");
+    if (t) t.textContent = text;
+  }
+
+  function removeBackdrop() {
+    var bd = document.getElementById("velosia-backdrop");
+    if (!bd) return;
+    try {
+      bd.style.transition = "opacity .25s ease";
+      bd.style.opacity = "0";
+      setTimeout(function () { if (bd && bd.parentNode) bd.remove(); }, 280);
+    } catch (e) { try { bd.remove(); } catch (e2) {} }
+  }
+
+  // Floating, viewport-anchored arrow that points at the publish button and keeps
+  // tracking it on scroll/resize, so the user immediately knows what to tap once
+  // the form is filled (manual mode only).
+  function pointToButton(btn) {
+    if (!btn) return;
+    injectStyleOnce();
+    try { btn.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) {}
+    try { btn.style.animation = "velosia-pulse 1.4s infinite"; btn.style.borderRadius = btn.style.borderRadius || "8px"; } catch (e) {}
+    setTimeout(function () {
+      var old = document.getElementById("velosia-arrow");
+      if (old) old.remove();
+      var a = document.createElement("div");
+      a.id = "velosia-arrow";
+      a.textContent = "👇 Hier veröffentlichen";
+      a.style.cssText = [
+        "position:fixed", "z-index:2147483647", "pointer-events:none",
+        "background:linear-gradient(135deg,#09b0b7,#ec4899)", "color:#fff",
+        "padding:7px 13px", "border-radius:999px", "font-size:13px", "font-weight:700",
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
+        "box-shadow:0 8px 24px rgba(0,0,0,.45)", "animation:velosia-bounce 1s ease-in-out infinite",
+        "white-space:nowrap"
+      ].join(";");
+      document.body.appendChild(a);
+      function place() {
+        var r = btn.getBoundingClientRect();
+        var top = r.top - 46;
+        if (top < 8) top = r.bottom + 10; // not enough room above -> sit below
+        var left = r.left + r.width / 2 - a.offsetWidth / 2;
+        left = Math.max(8, Math.min(window.innerWidth - a.offsetWidth - 8, left));
+        a.style.top = top + "px";
+        a.style.left = left + "px";
+      }
+      place();
+      window.addEventListener("scroll", place, { passive: true });
+      window.addEventListener("resize", place);
+    }, 650);
+  }
+
   function showOverlay(result, autoSubmit) {
     try {
       var existing = document.getElementById("velosia-overlay");
@@ -718,6 +817,7 @@
     var attrCount = 0;
 
     // Poll for the title field — both forms render asynchronously.
+    setBackdrop("Formular wird gelesen …");
     var titleEl = null;
     for (var i = 0; i < 24 && !titleEl; i++) {
       titleEl = findField(map.title);
@@ -727,6 +827,7 @@
     var descEl = findField(map.description);
     var priceEl = findField(map.price);
 
+    setBackdrop("Titel, Beschreibung & Preis …");
     if (fillField(titleEl, draft.title)) filled.push("Titel");
     if (fillField(descEl, draft.description)) filled.push("Beschreibung");
     if (draft.price !== undefined && draft.price !== null) {
@@ -735,6 +836,18 @@
     if (titleEl) titleEl.__velosiaKnown = true;
     if (descEl) descEl.__velosiaKnown = true;
     if (priceEl) priceEl.__velosiaKnown = true;
+
+    // Photos first — triggering the file chooser early (before the slower
+    // attribute / category steps) makes the upload feel instant and gives the
+    // native WebView host the most time to render the photo preview.
+    setBackdrop("Fotos werden übertragen …");
+    var photos = 0;
+    if (options.imageMode === "native") {
+      photos = triggerNativeFileChooser();
+    } else {
+      var urls = resolveImageUrls(draft, options.backendUrl);
+      photos = await uploadPhotosDataTransfer(urls);
+    }
 
     if (platform === "kleinanzeigen") {
       selectKleinanzeigenOffer();
@@ -750,12 +863,16 @@
           filled.push("PLZ");
         }
       }
-      // Attributes may render slightly after the core fields — retry a few times.
+      // Attributes may render slightly after the core fields. Fill once, then
+      // only keep waiting/retrying while attributes are still missing — when the
+      // first pass already caught everything we skip the (formerly fixed) 3.5s.
+      setBackdrop("Kategorie-Details werden ausgefüllt …");
+      var wantAttr = Object.keys(parseAttributes(draft)).length;
       var attrFilled = fillAttributes(draft);
-      await sleep(1500);
-      attrFilled = attrFilled.concat(fillAttributes(draft));
-      await sleep(2000);
-      attrFilled = attrFilled.concat(fillAttributes(draft));
+      for (var pass = 0; pass < 2 && attrFilled.length < wantAttr; pass++) {
+        await sleep(900);
+        attrFilled = attrFilled.concat(fillAttributes(draft));
+      }
       // De-dup attribute labels for the report.
       var dedupAttr = attrFilled.filter(function (v, idx, arr) { return arr.indexOf(v) === idx; });
       attrCount = dedupAttr.length;
@@ -765,6 +882,7 @@
     // Vinted: drive the category picker automatically (drilled by catalog id /
     // name). Brand / size / condition are separate pickers — still manual for now.
     if (platform === "vinted") {
+      setBackdrop("Kategorie wird ausgewählt …");
       var vintedCatOk = false;
       if (draft.vinted_path || draft.vintedPath) {
         try { vintedCatOk = await selectVintedCategory(draft); } catch (e) { vintedCatOk = false; }
@@ -775,15 +893,6 @@
       manual.push("Marke, Größe, Zustand");
     } else if (!draft.category) {
       manual.push("Kategorie");
-    }
-
-    // Photos
-    var photos = 0;
-    if (options.imageMode === "native") {
-      photos = triggerNativeFileChooser();
-    } else {
-      var urls = resolveImageUrls(draft, options.backendUrl);
-      photos = await uploadPhotosDataTransfer(urls);
     }
 
     return {
@@ -911,16 +1020,32 @@
     } catch (e) {}
 
     // Kleinanzeigen step 1: pick the category, then let the step-2 reload fill.
+    // A light backdrop signals progress; the page reloads to schritt2 right after.
     if (platform === "kleinanzeigen" && phase === "category") {
+      if (showUi) { ensureBackdrop(); setBackdrop("Kategorie wird gewählt …"); }
       var result0 = { platform: platform, phase: phase, filled: [], manual: [], photos: 0, submitted: false };
-      if (showUi) showOverlay(result0, autoSubmit);
-      var catOk = await autoSelectCategory(draft);
+      var catOk;
+      try { catOk = await autoSelectCategory(draft); }
+      catch (e) { catOk = false; if (showUi) removeBackdrop(); }
       console.log("Velosia: Kategorie-Auswahl (KA) ->", catOk ? "Weiter geklickt" : "fehlgeschlagen/manuell", "path=", draft && draft.category_path);
       sendTelemetry({ platform: platform, phase: phase, category_ok: !!catOk }, options);
+      // If "Weiter" did not fire we stay on this page — drop the backdrop so the
+      // user can pick the category manually instead of being stuck behind it.
+      if (showUi && !catOk) removeBackdrop();
       return result0;
     }
 
-    var r = await fillForm(draft, options, platform);
+    // Form phase: block the page behind a full-screen progress backdrop while the
+    // engine fills the fields, then reveal the result + an arrow to "Veröffentlichen".
+    if (showUi) ensureBackdrop();
+
+    var r;
+    try {
+      r = await fillForm(draft, options, platform);
+    } catch (e) {
+      if (showUi) removeBackdrop();
+      throw e;
+    }
     var result = {
       platform: platform, phase: phase,
       filled: r.filled, manual: r.manual, photos: r.photos, submitted: false
@@ -935,8 +1060,6 @@
       photos: r.photos, attributes_count: r.attrCount
     }, options);
 
-    if (showUi) showOverlay(result, autoSubmit);
-
     // Vinted publishes via SPA navigation (no reload) — start watching for the
     // resulting /items/<id> URL so we can capture & track the listing. Works for
     // both manual and auto-submit. Fire-and-forget. (Kleinanzeigen reloads to a
@@ -946,11 +1069,20 @@
     }
 
     if (autoSubmit) {
-      // Give image upload + framework state a moment to settle before publishing.
-      await sleep(7000);
+      // Keep the backdrop up and let image upload + framework state settle before
+      // publishing automatically.
+      if (showUi) setBackdrop("Wird veröffentlicht …");
+      await sleep(3500);
       result.submitted = await trySubmit(platform);
+      if (showUi) removeBackdrop();
     } else {
-      highlightButton(findSubmitButton(platform));
+      // Manual mode: drop the blocking backdrop, show the "what was filled" panel
+      // and point a tracking arrow at the publish button so the user knows to tap it.
+      if (showUi) {
+        removeBackdrop();
+        showOverlay(result, autoSubmit);
+        pointToButton(findSubmitButton(platform));
+      }
     }
     return result;
   }
