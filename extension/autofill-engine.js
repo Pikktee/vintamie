@@ -1020,11 +1020,15 @@
 
   // The collapsed FORM field that opens a Vinted dropdown/modal, identified by its
   // visible label text (e.g. "Zustand"). Mirrors vintedCategoryOpener but generic.
-  function vintedDropdownOpener(labelNeedle, testidHints) {
+  // avoidWords: when several fields share the label (e.g. "Größe" exists BOTH as the
+  // clothing size AND as Vinted's shipping PACKAGE size "Klein/Mittel/Groß"), a field
+  // whose surrounding section mentions one of these words is de-prioritised, so we open
+  // the right one. Among equal-penalty matches the shallowest (fewest descendants) wins.
+  function vintedDropdownOpener(labelNeedle, testidHints, avoidWords) {
     var o = testidHints && testidHints.length ? firstBySelectors(testidHints) : null;
     if (o) return o;
     var cands = document.querySelectorAll("[role='button'], button, [tabindex], input[readonly], li, div");
-    var best = null;
+    var best = null, bestPenalty = 9, bestKids = 1e9;
     for (var i = 0; i < cands.length; i++) {
       var el = cands[i];
       if (!isInteractable(el)) continue;
@@ -1032,10 +1036,39 @@
       if (el.querySelector("input, textarea")) continue;
       var t = norm(el.textContent || el.getAttribute("placeholder") || el.value || "");
       if (t === labelNeedle || (t.indexOf(labelNeedle) !== -1 && t.length <= labelNeedle.length + 14)) {
-        if (!best || el.getElementsByTagName("*").length < best.getElementsByTagName("*").length) best = el;
+        var penalty = 0;
+        if (avoidWords && avoidWords.length) {
+          var ctx = norm((el.closest("fieldset, section, [class*='Cell'], [class*='ield'], [class*='ow']") || el.parentElement || el).textContent || "");
+          for (var a = 0; a < avoidWords.length; a++) { if (ctx.indexOf(avoidWords[a]) !== -1) { penalty = 1; break; } }
+        }
+        var kids = el.getElementsByTagName("*").length;
+        if (penalty < bestPenalty || (penalty === bestPenalty && kids < bestKids)) {
+          best = el; bestPenalty = penalty; bestKids = kids;
+        }
       }
     }
+    // If avoidWords were given and the ONLY matches are penalised (e.g. only the
+    // shipping package-size field matched "Größe"), open nothing — better to leave the
+    // field manual than to wrongly change the package size.
+    if (avoidWords && avoidWords.length && bestPenalty > 0) return null;
     return best;
+  }
+
+  // Vinted lists clothing sizes in varied notations. From the AI value (e.g. "W36 L34"
+  // or "M" or "40") build a prioritised list of spellings to try against the options.
+  function vintedSizeCandidates(value) {
+    var out = [], seen = {};
+    function add(v) { v = String(v || "").trim(); var k = norm(v); if (v && !seen[k]) { seen[k] = 1; out.push(v); } }
+    add(value);
+    var w = /w\s*(\d{2,3})/i.exec(value), l = /l\s*(\d{2,3})/i.exec(value);
+    if (w && l) {
+      add("W" + w[1] + " L" + l[1]); add("W" + w[1] + "/L" + l[1]);
+      add(w[1] + "/" + l[1]); add(w[1] + " x " + l[1]); add(w[1]);
+    } else {
+      var nums = String(value).match(/\d{2,3}/g);
+      if (nums && nums.length) add(nums[0]);
+    }
+    return out;
   }
 
   // Generic Vinted form dropdown: open the field (by label/testid), then click the
@@ -1043,10 +1076,10 @@
   // "Fertig" save if the picker uses one. Used for Zustand / Größe / Farbe / Material.
   // Best-effort and side-effect-safe: if the field or option is absent it just leaves
   // the value blank (returns false) — we NEVER pick a wrong option.
-  async function selectVintedDropdownValue(fieldLabel, testidHints, candidates, logName) {
+  async function selectVintedDropdownValue(fieldLabel, testidHints, candidates, logName, avoidWords) {
     candidates = (candidates || []).filter(Boolean);
     if (!candidates.length) return false;
-    var opener = vintedDropdownOpener(fieldLabel, testidHints);
+    var opener = vintedDropdownOpener(fieldLabel, testidHints, avoidWords);
     if (!opener) { console.log("Velosia Vinted: " + logName + "-Feld nicht gefunden — manuell"); return false; }
 
     function findOptionRow() {
@@ -1560,9 +1593,12 @@
 
       var sizeOk = false, colorOk = false, materialOk = false, brandOk = false;
       if (sizeVal) {
+        // Exclude Vinted's shipping PACKAGE size field (also labelled "Größe") via
+        // avoidWords, and try several size spellings (W36 L34 / 36/34 / 36 …).
         try { sizeOk = await selectVintedDropdownValue("größe",
           ["[data-testid='size-select-dropdown-input']", "[data-testid='size-select-dropdown-chevron']"],
-          [sizeVal], "Größe"); } catch (e) {}
+          vintedSizeCandidates(sizeVal), "Größe",
+          ["versand", "paket", "pushen", "schneller", "sichtbarkeit", "spotlight"]); } catch (e) {}
       }
       if (colorVal) {
         try { colorOk = await selectVintedDropdownValue("farbe",
