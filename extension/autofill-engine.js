@@ -820,8 +820,9 @@
     // the previous probe only fired mid-loop and so never arrived when the function
     // returned early. reason tells us: no control / no input / no matching option.
     function bail(reason, extra) {
+      var detail = extra ? Object.keys(extra).map(function (k) { return k + "=" + extra[k]; }).join(" ") : "";
       try { sendDebug(Object.assign({ event: "ka_brand_probe", reason: reason, brandLen: String(brand || "").length }, extra || {}), options); } catch (e) {}
-      return false;
+      return { ok: false, reason: reason, detail: detail };
     }
     if (!brand) return bail("no_brand_value");
     var control = kaFieldControl("Marke");
@@ -863,7 +864,7 @@
     try { opt.click(); } catch (e) {}
     await sleep(200);
     try { console.log("Velosia KA: Marke '" + brand + "' gesetzt (gefiltert)"); } catch (e) {}
-    return true;
+    return { ok: true };
   }
 
   // Velosia's free-text condition -> the new KA option labels (no "Defekt" any more
@@ -1935,17 +1936,17 @@
       }
       var kaBrand = attrValue(draft, "marke");
       if (kaBrand && !alreadyFilled("marke")) {
-        var brandOkKa = false;
-        try { brandOkKa = await selectKleinanzeigenBrand(kaBrand, options); } catch (e) {}
-        if (brandOkKa) filled.push("Marke");
-        else manual.push("Marke");
+        // selectKleinanzeigenBrand returns {ok, reason, detail}. On failure we surface
+        // the reason RIGHT IN THE OVERLAY ("Marke — no_match (optionCount=0 …)") so the
+        // exact mobile bail point is visible without depending on the (flaky) logs.
+        var br = { ok: false, reason: "exception", detail: "" };
+        try { br = await selectKleinanzeigenBrand(kaBrand, options); } catch (e) { br = { ok: false, reason: "throw", detail: String(e && e.message || e).slice(0, 60) }; }
+        if (br && br.ok) filled.push("Marke");
+        else manual.push("Marke — " + ((br && br.reason) || "?") + (br && br.detail ? " (" + br.detail + ")" : ""));
       } else if (!kaBrand) {
-        // No brand attribute on the draft -> the AI didn't detect a brand on the
-        // photos (its prompt only emits "Marke" for a clearly visible logo). Report
-        // the attribute KEY NAMES (structural, no values) so we can tell this apart
-        // from an engine failure and see if the brand sits under an unexpected key.
-        try { sendDebug({ event: "ka_brand_probe", reason: "no_brand_attr",
-          attrKeys: Object.keys(parseAttributes(draft)).map(norm).join(",").slice(0, 160) }, options); } catch (e) {}
+        // No brand attribute on the draft -> show which keys DID arrive so we can tell
+        // "AI didn't detect a brand" apart from "key normalises differently".
+        manual.push("Marke — kein Attribut [" + Object.keys(parseAttributes(draft)).map(norm).join(",").slice(0, 80) + "]");
       }
     }
 
