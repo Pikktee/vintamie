@@ -815,14 +815,22 @@
   // Filtering dodges the full-list render that on mobile left the brand unmatched.
   // Never commits a non-exact brand. `options` is only used for an optional beacon.
   async function selectKleinanzeigenBrand(brand, options) {
-    if (!brand) return false;
+    // Emit exactly one structural diagnostic per call (no listing content beyond the
+    // brand length) so the Railway logs reveal WHERE the brand step bails on mobile —
+    // the previous probe only fired mid-loop and so never arrived when the function
+    // returned early. reason tells us: no control / no input / no matching option.
+    function bail(reason, extra) {
+      try { sendDebug(Object.assign({ event: "ka_brand_probe", reason: reason, brandLen: String(brand || "").length }, extra || {}), options); } catch (e) {}
+      return false;
+    }
+    if (!brand) return bail("no_brand_value");
     var control = kaFieldControl("Marke");
-    if (!control) return false;
+    if (!control) return bail("no_control");
     try { control.scrollIntoView({ block: "center" }); } catch (e) {}
     try { control.click(); } catch (e) {}
     await sleep(350);
     var input = pickBrandSearchInput(control);
-    if (!input) { kaCloseOverlay(control); return false; }
+    if (!input) { kaCloseOverlay(control); return bail("no_input", { activeTag: (document.activeElement || {}).tagName || null }); }
     try { input.focus(); } catch (e) {}
     // Type only the part BEFORE the first connector: KA's own filter is literal and
     // does NOT treat "and" == "&" (typing "Jack and Jones" filters to nothing), so we
@@ -836,23 +844,22 @@
     try { input.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: last })); } catch (e) {}
 
     var want = kaLooseKey(brand);
-    var opt = null, probed = false;
+    var opt = null, lastCount = 0;
     for (var i = 0; i < 25 && !opt; i++) {
       await sleep(200);
       var pool = Array.prototype.slice.call(document.querySelectorAll("[role='option']")).filter(kaVisible);
+      lastCount = pool.length;
       for (var j = 0; j < pool.length; j++) {
         if (kaLooseKey(pool[j].textContent) === want) { opt = pool[j]; break; }
       }
-      // One-shot diagnostic (no listing content) so we can see the mobile structure.
-      if (!probed && i === 4) {
-        probed = true;
-        try { sendDebug({ event: "ka_brand_probe", optionCount: pool.length,
-          typedInto: input === control ? "control" : "overlay-input",
-          activeTag: (document.activeElement || {}).tagName || null,
-          inputVal: (input.value || "").slice(0, 20) }, options); } catch (e) {}
-      }
     }
-    if (!opt) { kaCloseOverlay(control); return false; }
+    if (!opt) {
+      kaCloseOverlay(control);
+      return bail("no_match", { optionCount: lastCount,
+        typedInto: input === control ? "control" : "overlay-input",
+        activeTag: (document.activeElement || {}).tagName || null,
+        inputVal: (input.value || "").slice(0, 20) });
+    }
     try { opt.click(); } catch (e) {}
     await sleep(200);
     try { console.log("Velosia KA: Marke '" + brand + "' gesetzt (gefiltert)"); } catch (e) {}
@@ -1932,6 +1939,13 @@
         try { brandOkKa = await selectKleinanzeigenBrand(kaBrand, options); } catch (e) {}
         if (brandOkKa) filled.push("Marke");
         else manual.push("Marke");
+      } else if (!kaBrand) {
+        // No brand attribute on the draft -> the AI didn't detect a brand on the
+        // photos (its prompt only emits "Marke" for a clearly visible logo). Report
+        // the attribute KEY NAMES (structural, no values) so we can tell this apart
+        // from an engine failure and see if the brand sits under an unexpected key.
+        try { sendDebug({ event: "ka_brand_probe", reason: "no_brand_attr",
+          attrKeys: Object.keys(parseAttributes(draft)).map(norm).join(",").slice(0, 160) }, options); } catch (e) {}
       }
     }
 

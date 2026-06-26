@@ -39,6 +39,19 @@ export default function App() {
   // Persisted backup of turbo photos so an accidental exit doesn't lose them
   const [turboImages, setTurboImages] = useState([]);
   const longPressTimer = useRef(null);
+  // When the user publishes via the platform WebView, DraftDetail stores the draft
+  // id here. On returning to the dashboard (the WebView reloads fresh), we restore
+  // that draft's detail view instead of dropping the user on the list. Read once at
+  // mount and cleared immediately so it doesn't re-trigger on later renders.
+  const [pendingReturnDraftId, setPendingReturnDraftId] = useState(() => {
+    try {
+      const v = localStorage.getItem('velosia_return_draft');
+      if (v) localStorage.removeItem('velosia_return_draft');
+      return v ? parseInt(v, 10) : null;
+    } catch (e) {
+      return null;
+    }
+  });
 
 
   // Track previous view for closing camera/getting back
@@ -91,6 +104,19 @@ export default function App() {
       delete window.onAndroidBack;
     };
   }, [view, prevView, capturedImages, turboMode]);
+
+  // After returning from a platform publish WebView, the dashboard reloads fresh.
+  // Once the drafts are loaded, restore the detail view of the draft we were
+  // publishing (set via the velosia_return_draft marker) instead of the list.
+  useEffect(() => {
+    if (pendingReturnDraftId == null || loading) return;
+    const d = drafts.find((x) => x.id === pendingReturnDraftId);
+    if (d) {
+      setSelectedDraft(d);
+      setView('detail');
+    }
+    setPendingReturnDraftId(null);
+  }, [pendingReturnDraftId, loading, drafts]);
 
   // Check auth state on mount and manage redirects
   useEffect(() => {

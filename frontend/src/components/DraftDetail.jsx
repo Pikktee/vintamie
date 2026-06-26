@@ -115,6 +115,10 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
 
   const handlePostInApp = (platform) => {
     if (isAndroidApp) {
+      // Remember which draft we're publishing so that returning from the platform
+      // WebView (back gesture OR after a successful publish) lands back on THIS
+      // detail page instead of the list. App.jsx reads this marker on (re)mount.
+      try { localStorage.setItem('velosia_return_draft', String(draft.id)); } catch (e) { /* ignore */ }
       window.VelosiaBridge.postToPlatform(draft.id, platform, getAuthToken());
     }
   };
@@ -761,11 +765,14 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
           (copy panel + extension tip) replaces the in-app sticky bar below. */}
       <div className="detail-content-container">
         <div className="draft-detail-grid fade-in">
-          {renderListingStatus()}
           {renderFormFields()}
           {renderImageBox()}
           {renderPriceComparison()}
           {renderDetectedInfo()}
+          {/* Status lives at the BOTTOM, directly above the publish bar, so the
+              published-listing info sits with the publishing actions — not at the
+              top of the form where it pushed the editable fields down. */}
+          {renderListingStatus()}
           {!isAndroidApp && renderPublishingAssist()}
         </div>
       </div>

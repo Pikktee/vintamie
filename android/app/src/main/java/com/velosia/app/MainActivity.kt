@@ -856,6 +856,17 @@ class MainActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
+        // On an external platform page during a publish session, back mirrors the
+        // Close (X) button: abort and return to the dashboard, which then restores
+        // the draft's detail view (via the velosia_return_draft marker the frontend
+        // set before navigating). We must NOT step back through the platform's own
+        // page history — that surfaces vinted/KA sub-pages and, once it reaches the
+        // dashboard, re-mounts React fresh on the *list* instead of the detail.
+        val current = webView.url
+        if (activeDraftId >= 0 && current != null && !current.startsWith(frontendUrl)) {
+            closeListingView()
+            return
+        }
         webView.evaluateJavascript("window.onAndroidBack ? window.onAndroidBack() : false") { result ->
             if (result == "true") {
                 // Handled by React app, do nothing
