@@ -563,12 +563,30 @@ class MainActivity : AppCompatActivity() {
                 if (url.contains("/items/new")) null
                 else Regex("/items/(\\d+)").find(url)?.groupValues?.get(1)
             }
-            "kleinanzeigen" -> Regex("/s-anzeige/[^/]+/(\\d+)").find(url)?.groupValues?.get(1)
+            // KA's rebuilt flow may land on a confirmation page (?adId=…) instead of
+            // navigating straight to /s-anzeige/<slug>/<id> — so accept both.
+            "kleinanzeigen" -> {
+                Regex("/s-anzeige/[^/]+/(\\d+)").find(url)?.groupValues?.get(1)
+                    ?: Regex("[?&]adId=(\\d+)").find(url)?.groupValues?.get(1)
+            }
             else -> null
-        } ?: return
+        }
 
-        // Strip query/fragment so we store a clean canonical listing URL.
-        val cleanUrl = url.substringBefore('?').substringBefore('#')
+        if (listingId == null) {
+            // Diagnostic: while a KA capture is still pending, report any navigation that
+            // leaves the listing form so we can confirm KA's real post-publish URL in the
+            // Railway logs (the moment adId/s-anzeige both miss, this tells us what to add).
+            if (platform == "kleinanzeigen" && url.contains("kleinanzeigen.de")
+                && !url.startsWith(frontendUrl) && !url.contains("p-anzeige-aufgeben")) {
+                postDebug("ka_postpublish_nav", url.substringBefore('#'))
+            }
+            return
+        }
+
+        // For a real /s-anzeige/ ad strip the query; for the adId confirmation page keep
+        // it (the id lives in the query) so we at least record a resolvable reference.
+        val cleanUrl = if (url.contains("/s-anzeige/")) url.substringBefore('?').substringBefore('#')
+                       else url.substringBefore('#')
 
         hasCaptured = true
         capturePublishedListing(activeDraftId, platform, listingId, cleanUrl, token)
@@ -615,6 +633,26 @@ class MainActivity : AppCompatActivity() {
         val msg = if (captured) "Artikel veröffentlicht! 🎉" else "Artikel veröffentlicht."
         Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
         webView.postDelayed({ closeListingView() }, 1500)
+    }
+
+    // Unauthenticated, fire-and-forget diagnostic beacon (no listing content beyond the
+    // observed URL) so we can confirm KA's real post-publish navigation in the Railway
+    // logs without adb. Mirrors the engine's /api/telemetry/debug beacon.
+    private fun postDebug(event: String, detail: String) {
+        try {
+            val json = JSONObject().apply {
+                put("event", event)
+                put("url", detail)
+                put("source", "android")
+            }.toString()
+            val body = json.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
+            okHttpClient.newCall(
+                Request.Builder().url("$backendUrl/api/telemetry/debug").post(body).build()
+            ).enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {}
+                override fun onResponse(call: Call, response: Response) { response.close() }
+            })
+        } catch (e: Exception) { /* diagnostic is best-effort */ }
     }
 
     private fun checkCameraPermission() {

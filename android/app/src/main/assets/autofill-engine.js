@@ -261,13 +261,53 @@
   // fields. We deliberately do NOT click any "add photo" control to reveal it: on
   // these sites that control opens the native file chooser, which would pop over our
   // backdrop. If no input ever appears we simply leave the photos for a manual add.
+  // Be patient: Kleinanzeigen's rebuilt React form (2026) mounts the dropzone input
+  // noticeably later than the old layout, and on a slow device the old 2.4 s window
+  // was too short — the engine gave up and the listing went up photo-less. ~8 s now.
   async function waitForFileInput() {
     var input = findFileInput();
-    for (var i = 0; i < 8 && !input; i++) {
-      await sleep(300);
+    for (var i = 0; i < 20 && !input; i++) {
+      await sleep(400);
       input = findFileInput();
     }
     return input;
+  }
+
+  // Fire a synthetic drop carrying the same files onto the dropzone — for react-dropzone
+  // style uploaders (Kleinanzeigen's new form) that ingest via 'drop' rather than the
+  // input's 'change'. Verified live: 'change' alone DOES upload on KA, so this is only a
+  // fallback (see commitFilesToInput) and never doubles the upload.
+  function fireDropEvent(zone, dt) {
+    if (!zone) return;
+    try {
+      var de;
+      try { de = new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }); }
+      catch (e) { de = new Event("drop", { bubbles: true, cancelable: true }); try { de.dataTransfer = dt; } catch (e2) {} }
+      zone.dispatchEvent(de);
+    } catch (e) {}
+  }
+
+  // Inject the prepared files into the page's upload input. The 'change' event is what
+  // both Vinted and Kleinanzeigen (react-dropzone) normally read. On Kleinanzeigen we
+  // additionally fire a dropzone 'drop' — but ONLY if 'change' did not consume the files
+  // (react-dropzone empties input.files once it ingests them). That guard means we never
+  // upload every photo twice while still covering a missed 'change'.
+  async function commitFilesToInput(input, dt, allowDrop) {
+    try {
+      input.files = dt.files;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    } catch (e) { return false; }
+    if (allowDrop) {
+      await sleep(500);
+      try {
+        if (input.files && input.files.length > 0) {
+          var zone = input.closest("[class*='dashed'], [class*='drop'], [class*='Drop'], [class*='upload'], [class*='Upload']") || input.parentElement;
+          fireDropEvent(zone, dt);
+        }
+      } catch (e) {}
+    }
+    return true;
   }
 
   // Fetch each photo and inject ALL of them into the file input via a DataTransfer
@@ -275,7 +315,7 @@
   // Android WebView (CORS is "*" on the backend, so the cross-origin fetch of
   // /uploads works) — this uploads every draft photo and needs no user gesture,
   // unlike a programmatic file-chooser click which the WebView blocks.
-  async function uploadPhotosDataTransfer(urls) {
+  async function uploadPhotosDataTransfer(urls, allowDrop) {
     if (urls.length === 0) return 0;
     var input = await waitForFileInput();
     if (!input) return 0;
@@ -294,12 +334,8 @@
       } catch (e) { /* skip individual image failures */ }
     }
     if (count === 0) return 0;
-    try {
-      input.files = dt.files;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-    } catch (e) { return 0; }
-    return count;
+    var ok = await commitFilesToInput(input, dt, allowDrop);
+    return ok ? count : 0;
   }
 
   // Convert a data: URL (base64 or url-encoded) to a File, without any network.
@@ -318,7 +354,7 @@
   // Android path: the native shell fetches every draft photo with okhttp (no browser
   // CORS) and hands them over as data: URLs through the VelosiaBridge. We build Files
   // from them and inject ALL of them via a DataTransfer — fully CORS-immune.
-  async function uploadPhotosFromBridge() {
+  async function uploadPhotosFromBridge(allowDrop) {
     var b = (typeof window !== "undefined") ? window.VelosiaBridge : null;
     if (!b || typeof b.getDraftImageCount !== "function") return -1; // bridge not available
     var n = 0;
@@ -336,12 +372,8 @@
       } catch (e) { /* skip individual failures */ }
     }
     if (count === 0) return 0;
-    try {
-      input.files = dt.files;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-    } catch (e) { return 0; }
-    return count;
+    var ok = await commitFilesToInput(input, dt, allowDrop);
+    return ok ? count : 0;
   }
 
   // Native fallback (Android, only if DataTransfer is unavailable): trigger the
@@ -1575,14 +1607,16 @@
     // for environments without DataTransfer or resolvable URLs.
     setBackdrop("Fotos werden übertragen …");
     var photos = 0;
+    // Kleinanzeigen's new react-dropzone uploader also accepts a 'drop' fallback.
+    var allowDrop = platform === "kleinanzeigen";
     // 1) Android bridge (CORS-immune: native shell supplies the photos as data URLs).
-    var bridged = await uploadPhotosFromBridge();
+    var bridged = await uploadPhotosFromBridge(allowDrop);
     if (bridged >= 0) photos = bridged;
     // 2) Browser fetch + DataTransfer (extension, or Android if the bridge is absent).
     if (photos === 0) {
       var urls = resolveImageUrls(draft, options.backendUrl);
       if (typeof DataTransfer !== "undefined" && urls.length > 0) {
-        photos = await uploadPhotosDataTransfer(urls);
+        photos = await uploadPhotosDataTransfer(urls, allowDrop);
       }
     }
     // 3) Last-resort native file chooser.
