@@ -928,6 +928,11 @@
         brandInputs: bInputs }, options);
     } catch (e) {}
     if (committed) {
+      // Drop focus so the brand field isn't left active/highlighted after the fill
+      // (cosmetic). Safe now that the value is verified committed — blurring only ever
+      // discards UNcommitted combobox text, which we've already passed.
+      try { if (control && control.blur) control.blur(); } catch (e) {}
+      try { var ae = document.activeElement; if (ae && ae.blur) ae.blur(); } catch (e) {}
       try { console.log("Velosia KA: Marke '" + brand + "' gesetzt (gefiltert)"); } catch (e) {}
       return { ok: true };
     }
