@@ -557,6 +557,13 @@
       // Then free-text inputs.
       for (var t = 0; t < texts.length; t++) {
         if (texts[t].__velosiaKnown) continue;
+        // Skip combobox/autocomplete inputs (e.g. KA's new "Marke" field). Writing raw
+        // text into them does NOT commit a real selection — KA reverts it on blur, so
+        // the field ends up empty — yet it would mark the field "done" and block the
+        // dedicated picker (selectKleinanzeigenBrand). Those are handled separately.
+        if (texts[t].getAttribute("role") === "combobox" ||
+            texts[t].getAttribute("aria-autocomplete") ||
+            texts[t].getAttribute("aria-haspopup") === "listbox") continue;
         if (labelTextFor(texts[t]).indexOf(label) === -1) continue;
         fillField(texts[t], value);
         texts[t].__velosiaKnown = true;
