@@ -293,88 +293,70 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
     );
   };
 
-  const renderListingStatus = () => {
-    const platforms = listingPlatforms(draft);
-    if (platforms.length === 0) return null;
+  // Per-platform publish control. The old standalone "Status" section is gone:
+  // each platform is now ONE button that doubles as its status. Not yet published
+  // → the normal publish button. Already published → a grayed-out "published"
+  // state showing the live status plus the inline actions that used to live in
+  // the status section (open listing, re-list, and — KA only — mark as sold).
+  const PLATFORM_INFO = {
+    vinted: { name: 'Vinted', cls: 'btn-vinted' },
+    kleinanzeigen: { name: 'Kleinanzeigen', cls: 'btn-kleinanzeigen' },
+  };
 
-    const fmt = (iso) => {
-      if (!iso) return null;
-      const d = new Date(iso);
-      return d.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-    };
+  const renderPublishControl = (key, onPublish, { btnLabel, btnIcon, btnExtraCls = '' }) => {
+    const info = PLATFORM_INFO[key];
+    const p = listingPlatforms(draft).find((x) => x.key === key);
 
+    if (!p) {
+      return (
+        <button className={`btn ${info.cls} ${btnExtraCls}`.trim()} onClick={onPublish}>
+          {btnIcon}
+          <span>{btnLabel}</span>
+        </button>
+      );
+    }
+
+    const meta = statusMeta(p.status);
+    const canMarkSold = key === 'kleinanzeigen' && !TERMINAL.has(p.status);
     return (
-      <div className="detail-section-unboxed">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '1.25rem', width: '100%' }}>
-          <h3 className="detail-section-title" style={{ borderBottom: 'none', margin: 0, paddingBottom: 0 }}>
-            <TrendingUp size={18} style={{ color: 'var(--primary)' }} />
-            <span>Status</span>
-          </h3>
+      <div className="publish-control published">
+        <div className="publish-control-head">
+          <span className="publish-control-name">{info.name}</span>
+          <span
+            className="listing-status-badge"
+            style={{ color: meta.color, background: meta.bg, borderColor: meta.color }}
+          >
+            <span className="listing-status-dot" style={{ background: meta.color }} />
+            {meta.label}
+          </span>
           <button
-            className="status-refresh-btn"
+            className="publish-control-refresh"
             onClick={handleRefreshStatus}
             disabled={refreshingStatus}
             title="Status aktualisieren"
+            aria-label="Status aktualisieren"
           >
-            <RefreshCw size={15} className={refreshingStatus ? 'spin' : ''} />
-            <span>{refreshingStatus ? 'Aktualisiere…' : 'Aktualisieren'}</span>
+            <RefreshCw size={14} className={refreshingStatus ? 'spin' : ''} />
           </button>
         </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%' }}>
-          {platforms.map((p) => {
-            const meta = statusMeta(p.status);
-            const canMarkSold = p.key === 'kleinanzeigen' && !TERMINAL.has(p.status);
-            return (
-              <div key={p.key} className="listing-status-rowwrap">
-                <div className="listing-status-row">
-                  <div className="listing-status-row-left">
-                    <span className="listing-status-platform">{p.name}</span>
-                    <span
-                      className="listing-status-badge"
-                      style={{ color: meta.color, background: meta.bg, borderColor: meta.color }}
-                    >
-                      <span className="listing-status-dot" style={{ background: meta.color }} />
-                      {meta.label}
-                    </span>
-                    {p.at && <span className="listing-status-time">{fmt(p.at)}</span>}
-                  </div>
-                  <div className="listing-status-row-actions">
-                    {p.url && (
-                      <a
-                        href={p.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn-text-link"
-                        title="Anzeige öffnen"
-                      >
-                        Anzeige <ExternalLink size={12} />
-                      </a>
-                    )}
-                    <button
-                      className="btn-text-link"
-                      onClick={() => (isAndroidApp ? handlePostInApp(p.key) : openPlatformPage(p.key))}
-                      title="Neu einstellen"
-                    >
-                      Neu einstellen
-                    </button>
-                  </div>
-                </div>
-                {canMarkSold && (
-                  <div className="mark-sold-hint">
-                    <p>Kleinanzeigen zeigt „verkauft" nicht öffentlich — du kannst es selbst setzen.</p>
-                    <button
-                      className="mark-sold-btn"
-                      disabled={settingStatus}
-                      onClick={() => handleSetStatus('kleinanzeigen', 'verkauft')}
-                    >
-                      <Coins size={15} /> Als verkauft markieren
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <div className="publish-control-actions">
+          {p.url && (
+            <a href={p.url} target="_blank" rel="noopener noreferrer" className="btn-text-link">
+              Anzeige öffnen <ExternalLink size={12} />
+            </a>
+          )}
+          <button className="btn-text-link" onClick={onPublish}>
+            Neu einstellen
+          </button>
+          {canMarkSold && (
+            <button
+              className="btn-text-link mark-sold-link"
+              disabled={settingStatus}
+              onClick={() => handleSetStatus('kleinanzeigen', 'verkauft')}
+            >
+              <Coins size={13} /> Als verkauft markieren
+            </button>
+          )}
         </div>
       </div>
     );
@@ -447,23 +429,19 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
               </div>
             </div>
 
-            {/* External Platform Links */}
+            {/* Platform actions: a publish button per platform, or — once that
+                platform is published — a grayed status control with inline actions. */}
             <div className="platform-links-container">
-              <button 
-                className="btn btn-vinted platform-link-btn" 
-                onClick={() => openPlatformPage('vinted')}
-              >
-                Vinted öffnen
-                <ExternalLink size={12} style={{ marginLeft: '0.25rem' }} />
-              </button>
-              
-              <button 
-                className="btn btn-kleinanzeigen platform-link-btn" 
-                onClick={() => openPlatformPage('kleinanzeigen')}
-              >
-                Kleinanzeigen
-                <ExternalLink size={12} style={{ marginLeft: '0.25rem' }} />
-              </button>
+              {renderPublishControl('vinted', () => openPlatformPage('vinted'), {
+                btnLabel: 'Vinted öffnen',
+                btnIcon: <ExternalLink size={12} style={{ marginRight: '0.25rem' }} />,
+                btnExtraCls: 'platform-link-btn',
+              })}
+              {renderPublishControl('kleinanzeigen', () => openPlatformPage('kleinanzeigen'), {
+                btnLabel: 'Kleinanzeigen',
+                btnIcon: <ExternalLink size={12} style={{ marginRight: '0.25rem' }} />,
+                btnExtraCls: 'platform-link-btn',
+              })}
             </div>
           </div>
       </div>
@@ -769,10 +747,6 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
           {renderImageBox()}
           {renderPriceComparison()}
           {renderDetectedInfo()}
-          {/* Status lives at the BOTTOM, directly above the publish bar, so the
-              published-listing info sits with the publishing actions — not at the
-              top of the form where it pushed the editable fields down. */}
-          {renderListingStatus()}
           {!isAndroidApp && renderPublishingAssist()}
         </div>
       </div>
@@ -781,21 +755,15 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
           sibling at the bottom of the column; hidden while the keyboard is open
           (.keyboard-open on app-shell) so it never covers a focused field. */}
       {isAndroidApp && (
-        <div className="detail-publish-bar">
-          <button
-            className="btn btn-vinted"
-            onClick={() => handlePostInApp('vinted')}
-          >
-            <Upload size={16} />
-            <span>Auf Vinted</span>
-          </button>
-          <button
-            className="btn btn-kleinanzeigen"
-            onClick={() => handlePostInApp('kleinanzeigen')}
-          >
-            <Upload size={16} />
-            <span>Kleinanzeigen</span>
-          </button>
+        <div className={`detail-publish-bar${listingPlatforms(draft).length > 0 ? ' has-published' : ''}`}>
+          {renderPublishControl('vinted', () => handlePostInApp('vinted'), {
+            btnLabel: 'Auf Vinted',
+            btnIcon: <Upload size={16} />,
+          })}
+          {renderPublishControl('kleinanzeigen', () => handlePostInApp('kleinanzeigen'), {
+            btnLabel: 'Kleinanzeigen',
+            btnIcon: <Upload size={16} />,
+          })}
         </div>
       )}
 

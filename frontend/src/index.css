@@ -1120,6 +1120,14 @@ select.form-control {
   display: none;
 }
 
+/* Once a platform is published its slot becomes a taller status card, so the
+   two-up grid gives way to a stacked column (card on top, button below). */
+.detail-publish-bar.has-published {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
 /* Content Container styling */
 .detail-content-container {
   max-width: 1000px;
@@ -2850,13 +2858,62 @@ select.form-control {
   color: var(--primary);
 }
 
-/* Turbo marker — just the bolt (no word), shown only on still-unlisted drafts so
-   the row never grows a third line. */
-.turbo-bolt {
+/* Turbo flash — a one-shot highlight on drafts just created by a turbo batch, so
+   the user sees which offers were generated. No persistent marking: the row
+   pulses a colored glow once and settles back to normal. */
+@keyframes turbo-flash-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0); border-color: var(--glass-border); }
+  15%  { box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.55); border-color: var(--secondary); }
+  60%  { box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.30); border-color: var(--secondary); }
+  100% { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0); border-color: var(--glass-border); }
+}
+.draft-list-item-card.turbo-flash {
+  animation: turbo-flash-pulse 2.6s ease-out 1;
+}
+
+/* Published-platform control in DraftDetail — replaces the old standalone Status
+   section. A grayed card carrying the live status + inline actions. */
+.publish-control.published {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.85rem;
+}
+.publish-control-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.publish-control-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+.publish-control-refresh {
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
-  color: var(--secondary);
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0.2rem;
+  color: var(--text-muted);
+  cursor: pointer;
 }
+.publish-control-refresh:disabled { opacity: 0.6; cursor: default; }
+.publish-control-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.9rem;
+}
+.btn-text-link.mark-sold-link { color: #60a5fa; }
+.btn-text-link:disabled { opacity: 0.6; cursor: default; text-decoration: none; }
+/* Desktop: a published control shares the row width with its sibling button. */
+.platform-links-container .publish-control.published { flex: 1; min-width: 0; }
 
 .draft-list-item-date {
   font-size: 0.7rem;

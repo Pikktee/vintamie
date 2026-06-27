@@ -38,6 +38,9 @@ export default function App() {
   const [tempTurboResults, setTempTurboResults] = useState(null);
   // Persisted backup of turbo photos so an accidental exit doesn't lose them
   const [turboImages, setTurboImages] = useState([]);
+  // IDs of drafts just created by a turbo batch — they flash once in the list so
+  // the user sees which offers were generated, then the marking clears itself.
+  const [flashDraftIds, setFlashDraftIds] = useState([]);
   const longPressTimer = useRef(null);
   // When the user publishes via the platform WebView, DraftDetail stores the draft
   // id here. On returning to the dashboard (the WebView reloads fresh), we restore
@@ -389,12 +392,16 @@ export default function App() {
       setTurboImages([]); // turbo finished successfully -> drop the backup
       setAbortController(null);
 
+      const newIds = tempTurboResults.map((d) => d.id);
       setDrafts((prev) => [...tempTurboResults, ...prev]);
       setTempTurboResults(null);
       setIsAnalysisFinished(false);
       setTurboMode(false);
       setSelectedDraft(null);
       setView('list');
+      // One-shot highlight of the freshly created drafts; clears after the flash.
+      setFlashDraftIds(newIds);
+      setTimeout(() => setFlashDraftIds([]), 3200);
       return;
     }
 
@@ -587,6 +594,7 @@ export default function App() {
               }}
               onDeleteDraft={handleDeleteDraft}
               onRefreshStatuses={handleRefreshStatuses}
+              flashIds={flashDraftIds}
             />
           )}
 

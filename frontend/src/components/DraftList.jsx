@@ -1,8 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Tag, Sparkles, Trash2, Calendar, ShoppingBag, Camera, FolderHeart, ChevronRight, Zap, RefreshCw, AlertTriangle, Clock, Coins, ExternalLink, X } from 'lucide-react';
+import { Tag, Sparkles, Trash2, Calendar, ShoppingBag, Camera, FolderHeart, ChevronRight, RefreshCw, AlertTriangle, Clock, Coins, ExternalLink, X } from 'lucide-react';
 import { getImageUrl, getAuthToken, setListingStatus } from '../utils/api';
-import { statusMeta, hasListing, listingPlatforms, groupDrafts, draftSection, crossPostConflict, listingAgeDays, STALE_DAYS } from '../utils/listingStatus';
+import { statusMeta, hasListing, listingPlatforms, draftSection, crossPostConflict, listingAgeDays, STALE_DAYS } from '../utils/listingStatus';
 
 // dd.mm for compact list signals.
 const fmtShort = (iso) => {
@@ -11,7 +11,7 @@ const fmtShort = (iso) => {
   return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
 };
 
-export default function DraftList({ drafts, isLoading, onSelectDraft, onDeleteDraft, onRefreshStatuses }) {
+export default function DraftList({ drafts, isLoading, onSelectDraft, onDeleteDraft, onRefreshStatuses, flashIds = [] }) {
   const [refreshing, setRefreshing] = useState(false);
   const [conflict, setConflict] = useState(null);
   const anyListing = drafts.some(hasListing);
@@ -153,13 +153,6 @@ export default function DraftList({ drafts, isLoading, onSelectDraft, onDeleteDr
     );
   }
 
-  const groups = groupDrafts(drafts);
-  const sections = [
-    { key: 'draft', label: 'Entwürfe', items: groups.draft },
-    { key: 'active', label: 'Aktiv', items: groups.active },
-    { key: 'done', label: 'Erledigt', items: groups.done },
-  ].filter((s) => s.items.length > 0);
-
   return (
     <div className="fade-in">
       <div className="drafts-header-row">
@@ -179,24 +172,17 @@ export default function DraftList({ drafts, isLoading, onSelectDraft, onDeleteDr
         )}
       </div>
 
-      {sections.map((sec) => (
-        <div key={sec.key} className="draft-section">
-          <div className="draft-section-head">
-            <span className="draft-section-label">{sec.label}</span>
-            <span className="draft-section-count">{sec.items.length}</span>
-          </div>
-          <ul className="SwipeableList">
-            {sec.items.map((draft) => (
-              <DraftListItem
-                key={draft.id}
-                draft={draft}
-                onSelect={onSelectDraft}
-                onDelete={onDeleteDraft}
-              />
-            ))}
-          </ul>
-        </div>
-      ))}
+      <ul className="SwipeableList">
+        {drafts.map((draft) => (
+          <DraftListItem
+            key={draft.id}
+            draft={draft}
+            onSelect={onSelectDraft}
+            onDelete={onDeleteDraft}
+            flash={flashIds.includes(draft.id)}
+          />
+        ))}
+      </ul>
 
       {conflict && (
         <CrossPostSheet conflict={conflict} onClose={() => setConflict(null)} />
@@ -205,7 +191,7 @@ export default function DraftList({ drafts, isLoading, onSelectDraft, onDeleteDr
   );
 }
 
-function DraftListItem({ draft, onSelect, onDelete }) {
+function DraftListItem({ draft, onSelect, onDelete, flash = false }) {
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -409,9 +395,9 @@ function DraftListItem({ draft, onSelect, onDelete }) {
       </div>
 
       {/* Foreground card */}
-      <div 
+      <div
         ref={cardRef}
-        className="draft-list-item-card"
+        className={`draft-list-item-card${flash ? ' turbo-flash' : ''}`}
         onClick={handleClick}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -438,25 +424,14 @@ function DraftListItem({ draft, onSelect, onDelete }) {
               {draft.title || 'Unbenanntes Angebot'}
             </h3>
             
-            {(() => {
-              // Turbo is only relevant while the item is still an unlisted draft —
-              // once it's live the bolt drops out (less relevant than the status).
-              // Reduced to the bolt alone so the row never grows a third line.
-              const section = draftSection(draft);
-              const showTurbo = draft.is_turbo && section === 'draft';
-              const showStatus = section !== 'draft';
-              if (!showTurbo && !showStatus) return null;
-              return (
-                <div className="draft-list-item-meta">
-                  {showTurbo && (
-                    <span className="turbo-bolt" title="Im Turbo-Modus erstellt">
-                      <Zap size={13} />
-                    </span>
-                  )}
-                  {showStatus && <ListingStatusMeta draft={draft} />}
-                </div>
-              );
-            })()}
+            {/* Single flat list: the only persistent row signal is the published
+                status (green V / K pills). No "draft" labels, no permanent turbo
+                marker — turbo-created items merely flash once via .turbo-flash. */}
+            {listingPlatforms(draft).length > 0 && (
+              <div className="draft-list-item-meta">
+                <ListingStatusMeta draft={draft} />
+              </div>
+            )}
           </div>
 
           {/* Right Section: Price & Actions */}
