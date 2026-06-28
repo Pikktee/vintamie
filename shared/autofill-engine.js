@@ -36,7 +36,7 @@
   // and in the extension it is a persistent content script — never redefine.
   if (window.__velosia && window.__velosia.__loaded) return;
 
-  var VERSION = "2.7.44";
+  var VERSION = "2.7.45";
 
   // ----------------------------------------------------------------------------
   // Low level helpers
@@ -1799,14 +1799,39 @@
   }
 
   // Gently highlight the publish button once the form is filled (manual mode): scroll
-  // it into view and apply a soft pulsing ring so the user knows what to tap. We no
-  // longer render a separate bouncing "Hier veröffentlichen" label — the pulsing
-  // button alone is enough and far less intrusive.
+  // it into view and overlay a pulsing ring so the user knows what to tap. The ring is
+  // a standalone element — completely immune to the platform's CSS that otherwise
+  // overrides box-shadow on the button itself.
   function pointToButton(btn) {
     if (!btn) return;
     injectStyleOnce();
     try { btn.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) {}
-    try { btn.style.animation = "velosia-pulse 1.4s infinite"; btn.style.borderRadius = btn.style.borderRadius || "8px"; } catch (e) {}
+
+    try {
+      var old = document.getElementById("velosia-pulse-ring");
+      if (old) old.remove();
+
+      var ring = document.createElement("div");
+      ring.id = "velosia-pulse-ring";
+      ring.style.cssText = [
+        "position:absolute", "z-index:2147483645", "pointer-events:none",
+        "border-radius:8px", "box-sizing:border-box",
+        "animation:velosia-pulse 1.4s infinite"
+      ].join(";");
+
+      function place() {
+        var r = btn.getBoundingClientRect();
+        ring.style.left = (r.left + window.scrollX) + "px";
+        ring.style.top = (r.top + window.scrollY) + "px";
+        ring.style.width = r.width + "px";
+        ring.style.height = r.height + "px";
+      }
+      place();
+      (document.body || document.documentElement).appendChild(ring);
+
+      window.addEventListener("scroll", place, { passive: true });
+      window.addEventListener("resize", place);
+    } catch (e) {}
   }
 
   function showOverlay(result, autoSubmit) {
