@@ -64,7 +64,7 @@ export default function App() {
 
   // Track previous view for closing camera/getting back
   useEffect(() => {
-    if (view !== 'capture' && view !== 'analyzing') {
+    if (view !== 'capture' && view !== 'analyzing' && view !== 'specs') {
       setPrevView(view);
     }
   }, [view]);
