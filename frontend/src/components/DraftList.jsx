@@ -77,31 +77,37 @@ export default function DraftList({ drafts, isLoading, onSelectDraft, onDeleteDr
 
   if (isLoading && drafts.length === 0) {
     return (
-      <div className="fade-in">
-        <div className="drafts-header-row">
-          <h2 className="page-title">
-            Deine Angebote <span className="drafts-count-badge">...</span>
-          </h2>
+      <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%', overflow: 'hidden' }}>
+        <div className="app-sticky-header">
+          <div className="app-header-inner">
+            <div className="app-header-bar">
+              <h2 className="app-header-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                Deine Angebote <span className="drafts-count-badge" style={{ fontSize: '0.85rem', padding: '0.15rem 0.5rem', borderRadius: '99px', background: 'rgba(255,255,255,0.08)' }}>...</span>
+              </h2>
+            </div>
+          </div>
         </div>
-        <ul className="SwipeableList">
-          {[1, 2, 3].map((key) => (
-            <li key={key} className="draft-list-item-container-wrap">
-              <div className="draft-list-item-card" style={{ cursor: 'default', pointerEvents: 'none' }}>
-                <div className="draft-list-item-main">
-                  <div className="draft-list-item-thumb-container skeleton-pulse" />
-                  <div className="draft-list-item-details" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <div className="skeleton-pulse" style={{ height: '1.2rem', width: '70%', borderRadius: '4px' }} />
-                    <div className="skeleton-pulse" style={{ height: '0.8rem', width: '35%', borderRadius: '4px' }} />
-                  </div>
-                  <div className="draft-list-item-right">
-                    <div className="skeleton-pulse" style={{ height: '1.8rem', width: '50px', borderRadius: 'var(--radius-sm)' }} />
-                    <ChevronRight size={18} className="draft-list-item-arrow" style={{ opacity: 0.15 }} />
+        <div className="app-content-container" style={{ paddingBottom: 'calc(85px + env(safe-area-inset-bottom, 0px))' }}>
+          <ul className="SwipeableList">
+            {[1, 2, 3].map((key) => (
+              <li key={key} className="draft-list-item-container-wrap">
+                <div className="draft-list-item-card" style={{ cursor: 'default', pointerEvents: 'none' }}>
+                  <div className="draft-list-item-main">
+                    <div className="draft-list-item-thumb-container skeleton-pulse" />
+                    <div className="draft-list-item-details" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <div className="skeleton-pulse" style={{ height: '1.2rem', width: '70%', borderRadius: '4px' }} />
+                      <div className="skeleton-pulse" style={{ height: '0.8rem', width: '35%', borderRadius: '4px' }} />
+                    </div>
+                    <div className="draft-list-item-right">
+                      <div className="skeleton-pulse" style={{ height: '1.8rem', width: '50px', borderRadius: 'var(--radius-sm)' }} />
+                      <ChevronRight size={18} className="draft-list-item-arrow" style={{ opacity: 0.15 }} />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     );
   }
@@ -191,48 +197,58 @@ export default function DraftList({ drafts, isLoading, onSelectDraft, onDeleteDr
       onTouchStart={handlePtrStart}
       onTouchMove={handlePtrMove}
       onTouchEnd={handlePtrEnd}
+      style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%', overflow: 'hidden' }}
     >
       <div 
         className={`ptr-indicator${pullY > 0 ? ' visible' : ''}${refreshing ? ' refreshing' : ''}`}
         style={
           refreshing 
-            ? { transform: 'translateX(-50%) translateY(50px)', opacity: 1 } 
+            ? { transform: 'translateX(-50%) translateY(50px)', opacity: 1, zIndex: 110 } 
             : pullY > 0 
-              ? { transform: `translateX(-50%) translateY(${pullY}px)` } 
-              : {}
+              ? { transform: `translateX(-50%) translateY(${pullY}px)`, zIndex: 110 } 
+              : { zIndex: 110 }
         }
       >
         <RefreshCw size={16} />
       </div>
 
-      <div className="drafts-header-row">
-        <h2 className="page-title">
-          Deine Angebote <span className="drafts-count-badge">{drafts.length}</span>
-        </h2>
-        {anyListing && onRefreshStatuses && (
-          <button
-            className="status-refresh-btn icon-only"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            title="Status aller Angebote aktualisieren"
-            aria-label="Status aller Angebote aktualisieren"
-          >
-            <RefreshCw size={16} className={refreshing ? 'spin' : ''} />
-          </button>
-        )}
+      <div className="app-sticky-header">
+        <div className="app-header-inner">
+          <div className="app-header-bar" style={{ justifyContent: 'space-between' }}>
+            <h2 className="app-header-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              Deine Angebote 
+              <span className="drafts-count-badge" style={{ fontSize: '0.85rem', padding: '0.15rem 0.5rem', borderRadius: '99px', background: 'rgba(255,255,255,0.08)' }}>
+                {drafts.length}
+              </span>
+            </h2>
+            {anyListing && onRefreshStatuses && (
+              <button
+                className="status-refresh-btn icon-only"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                title="Status aller Angebote aktualisieren"
+                aria-label="Status aller Angebote aktualisieren"
+              >
+                <RefreshCw size={16} className={refreshing ? 'spin' : ''} />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
-      <ul className="SwipeableList">
-        {drafts.map((draft) => (
-          <DraftListItem
-            key={draft.id}
-            draft={draft}
-            onSelect={onSelectDraft}
-            onDelete={onDeleteDraft}
-            flash={flashIds.includes(draft.id)}
-          />
-        ))}
-      </ul>
+      <div className="app-content-container" style={{ paddingBottom: 'calc(85px + env(safe-area-inset-bottom, 0px))' }}>
+        <ul className="SwipeableList">
+          {drafts.map((draft) => (
+            <DraftListItem
+              key={draft.id}
+              draft={draft}
+              onSelect={onSelectDraft}
+              onDelete={onDeleteDraft}
+              flash={flashIds.includes(draft.id)}
+            />
+          ))}
+        </ul>
+      </div>
 
       {conflict && (
         <CrossPostSheet conflict={conflict} onClose={() => setConflict(null)} />

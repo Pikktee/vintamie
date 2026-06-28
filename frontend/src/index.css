@@ -968,11 +968,17 @@ select.form-control {
   display: none !important;
 }
 
-.app-shell.detail-mode .app-main {
+.app-shell.detail-mode .app-main,
+.app-shell.list-mode .app-main,
+.app-shell.settings-mode .app-main,
+.app-shell.specs-mode .app-main {
   overflow-y: hidden;
 }
 
-.app-shell.detail-mode .app-main > div {
+.app-shell.detail-mode .app-main > div,
+.app-shell.list-mode .app-main > div,
+.app-shell.settings-mode .app-main > div,
+.app-shell.specs-mode .app-main > div {
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -980,7 +986,10 @@ select.form-control {
   padding-bottom: 0 !important;
 }
 
-.app-shell.detail-mode .app-main > div > .fade-in {
+.app-shell.detail-mode .app-main > div > .fade-in,
+.app-shell.list-mode .app-main > div > .fade-in,
+.app-shell.settings-mode .app-main > div > .fade-in,
+.app-shell.specs-mode .app-main > div > .fade-in {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -988,13 +997,74 @@ select.form-control {
   overflow: hidden;
 }
 
-.app-shell.detail-mode .app-main .container {
+.app-shell.detail-mode .app-main .container,
+.app-shell.list-mode .app-main .container,
+.app-shell.settings-mode .app-main .container,
+.app-shell.specs-mode .app-main .container {
   padding-left: 0 !important;
   padding-right: 0 !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
   max-width: 100% !important;
   width: 100% !important;
+}
+
+/* Reusable Sticky Header Layout */
+.app-sticky-header {
+  flex-shrink: 0;
+  z-index: 100;
+  background: #0e121a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.6);
+  width: 100%;
+}
+
+.android-app .app-sticky-header {
+  padding-top: env(safe-area-inset-top, 24px) !important;
+}
+
+.app-header-inner {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+.app-header-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 56px;
+}
+
+.app-header-title {
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--text-primary);
+  margin: 0;
+  flex: 1;
+}
+
+.app-content-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem;
+  box-sizing: border-box;
+  width: 100%;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 480px) {
+  .app-header-inner {
+    padding: 0 0.75rem;
+  }
+  .app-content-container {
+    padding: 1rem 0.75rem;
+  }
 }
 
 /* Sticky Tinder-style Detail Header (now fixed, not sticky) */

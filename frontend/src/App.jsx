@@ -529,8 +529,14 @@ export default function App() {
     );
   }
 
+  const useStickyHeaderLayout = 
+    view === 'detail' || 
+    (view === 'list' && (drafts.length > 0 || loading)) || 
+    view === 'settings' || 
+    view === 'specs';
+
   return (
-    <div className={`app-shell ${isAndroidApp ? 'android-app' : ''} ${view === 'capture' ? 'camera-mode' : ''} ${view === 'detail' ? 'detail-mode' : ''} ${isInputFocused ? 'keyboard-open' : ''}`}>
+    <div className={`app-shell ${isAndroidApp ? 'android-app' : ''} ${view === 'capture' ? 'camera-mode' : ''} ${view === 'detail' ? 'detail-mode' : ''} ${view === 'list' && (drafts.length > 0 || loading) ? 'list-mode' : ''} ${view === 'settings' ? 'settings-mode' : ''} ${view === 'specs' ? 'specs-mode' : ''} ${isInputFocused ? 'keyboard-open' : ''}`}>
       {/* Top Header Brand Bar */}
       {view !== 'detail' && !isAndroidApp && (
         <header className="app-header">
@@ -570,10 +576,10 @@ export default function App() {
       {/* Main Content Area */}
       <main className="app-main">
         <div 
-          className={`${view === 'detail' ? '' : 'container'} ${view === 'list' && drafts.length === 0 ? 'empty-state-container' : ''}`}
+          className={`${useStickyHeaderLayout ? '' : 'container'} ${view === 'list' && drafts.length === 0 && !loading ? 'empty-state-container' : ''}`}
           style={{ 
-            paddingTop: view === 'detail' ? '0' : '1rem', 
-            paddingBottom: view === 'list' && drafts.length === 0 ? 'calc(75px + env(safe-area-inset-bottom, 0px))' : 'calc(80px + env(safe-area-inset-bottom, 0px))'
+            paddingTop: useStickyHeaderLayout ? '0' : '1rem', 
+            paddingBottom: view === 'list' && drafts.length === 0 && !loading ? 'calc(75px + env(safe-area-inset-bottom, 0px))' : 'calc(80px + env(safe-area-inset-bottom, 0px))'
           }}
         >
           {view === 'capture' && (

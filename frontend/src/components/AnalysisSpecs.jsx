@@ -19,82 +19,63 @@ export default function AnalysisSpecs({ images = [], onBack, onStartAnalysis }) 
   };
 
   return (
-    <div className="fade-in" style={{ width: '100%', maxWidth: '480px', margin: '0 auto', position: 'relative' }}>
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%', overflow: 'hidden', position: 'relative' }}>
       {/* Background Ambient Glows */}
       <div className="loader-ambient-glow-1" style={{ top: '-10%', left: '-20%' }} />
       <div className="loader-ambient-glow-2" style={{ bottom: '10%', right: '-20%' }} />
 
-      {/* Header Row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-        <button
-          onClick={onBack}
-          className="btn btn-secondary"
-          style={{
-            minHeight: 'auto',
-            width: '40px',
-            height: '40px',
-            padding: 0,
-            borderRadius: '50%',
-            background: 'rgba(255, 255, 255, 0.04)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            color: 'var(--text-secondary)'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-            e.currentTarget.style.color = 'var(--text-primary)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
-            e.currentTarget.style.color = 'var(--text-secondary)';
-          }}
-          title="Zurück zur Kamera"
-        >
-          <ArrowLeft size={18} />
-        </button>
-        <div>
-          <h2 className="page-title">
-            Angaben verfeinern
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.825rem', margin: '0.15rem 0 0 0' }}>
-            Ergebnisse durch zusätzliche Details optimieren
-          </p>
+      <div className="app-sticky-header">
+        <div className="app-header-inner">
+          <div className="app-header-bar" style={{ gap: '1rem' }}>
+            <button
+              onClick={onBack}
+              className="detail-up-btn"
+              style={{ margin: 0 }}
+              title="Zurück zur Kamera"
+              aria-label="Zurück zur Kamera"
+            >
+              <ArrowLeft size={22} />
+            </button>
+            <h2 className="app-header-title">Angaben verfeinern</h2>
+          </div>
         </div>
       </div>
 
-      {/* Image Preview Row */}
-      <div style={{
-        display: 'flex',
-        gap: '0.65rem',
-        overflowX: 'auto',
-        padding: '0.5rem 0.25rem 1rem 0.25rem',
-        marginBottom: '1rem',
-        scrollbarWidth: 'none',
-        msOverflowStyle: 'none'
-      }}>
-        {images.map((img) => (
-          <div
-            key={img.id}
-            style={{
-              width: '64px',
-              height: '64px',
-              borderRadius: 'var(--radius-sm)',
-              overflow: 'hidden',
-              flexShrink: 0,
-              border: '1.5px solid rgba(255, 255, 255, 0.1)',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-            }}
-          >
-            <img src={img.previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          </div>
-        ))}
-      </div>
+      <div className="app-content-container" style={{ paddingBottom: '2rem' }}>
+        <div style={{ maxWidth: '480px', margin: '0 auto', width: '100%' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.825rem', margin: '0 0 1rem 0' }}>
+            Ergebnisse durch zusätzliche Details optimieren
+          </p>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Image Preview Row */}
+          <div style={{
+            display: 'flex',
+            gap: '0.65rem',
+            overflowX: 'auto',
+            padding: '0.5rem 0.25rem 1rem 0.25rem',
+            marginBottom: '1rem',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}>
+            {images.map((img) => (
+              <div
+                key={img.id}
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: 'var(--radius-sm)',
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  border: '1.5px solid rgba(255, 255, 255, 0.1)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                }}
+              >
+                <img src={img.previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            ))}
+          </div>
+
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         {/* Condition Section */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
           <label style={{ 
@@ -230,6 +211,8 @@ export default function AnalysisSpecs({ images = [], onBack, onStartAnalysis }) 
           <span>KI-Analyse starten</span>
         </button>
       </form>
+        </div>
+      </div>
     </div>
   );
 }

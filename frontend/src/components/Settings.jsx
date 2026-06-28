@@ -162,7 +162,7 @@ export default function Settings({ user, onLogout, onUpdateUser, onShowBugReport
   };
 
   return (
-    <div className="fade-in" style={{ paddingBottom: '2rem' }}>
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%', overflow: 'hidden' }}>
       {/* Inject custom tooltip styling */}
       <style>{`
         .tooltip-container {
@@ -202,33 +202,39 @@ export default function Settings({ user, onLogout, onUpdateUser, onShowBugReport
           opacity: 1;
         }
       `}</style>
-      <div className="profile-container">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '1.5rem', width: '100%' }}>
-          <h2 className="page-title" style={{ margin: 0 }}>Profil &amp; Einstellungen</h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: '500' }}>
-            {saving && (
-              <>
-                <RefreshCw size={14} className="spin" style={{ color: 'var(--primary)' }} />
-                <span>Speichert...</span>
-              </>
-            )}
-            {success && (
-              <>
-                <Check size={14} style={{ color: 'var(--primary)' }} />
-                <span style={{ color: 'var(--primary)' }}>Gespeichert</span>
-              </>
-            )}
-            {error && (
-              <>
-                <AlertCircle size={14} style={{ color: 'var(--danger)' }} />
-                <span style={{ color: 'var(--danger)' }}>Fehler</span>
-              </>
-            )}
+
+      <div className="app-sticky-header">
+        <div className="app-header-inner">
+          <div className="app-header-bar" style={{ justifyContent: 'space-between' }}>
+            <h2 className="app-header-title">Profil &amp; Einstellungen</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: '500' }}>
+              {saving && (
+                <>
+                  <RefreshCw size={14} className="spin" style={{ color: 'var(--primary)' }} />
+                  <span>Speichert...</span>
+                </>
+              )}
+              {success && (
+                <>
+                  <Check size={14} style={{ color: 'var(--primary)' }} />
+                  <span style={{ color: 'var(--primary)' }}>Gespeichert</span>
+                </>
+              )}
+              {error && (
+                <>
+                  <AlertCircle size={14} style={{ color: 'var(--danger)' }} />
+                  <span style={{ color: 'var(--danger)' }}>Fehler</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Settings Form wrapped around a 2-column grid */}
-        <form onSubmit={handleSave}>
+      <div className="app-content-container" style={{ paddingBottom: 'calc(85px + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="profile-container" style={{ padding: 0 }}>
+          {/* Settings Form wrapped around a 2-column grid */}
+          <form onSubmit={handleSave}>
           <div className="draft-detail-grid">
             
             {/* Left Column */}
@@ -555,6 +561,7 @@ export default function Settings({ user, onLogout, onUpdateUser, onShowBugReport
         </div>
       </div>
     </div>
+  </div>
   );
 }
 
