@@ -4290,4 +4290,14 @@ select.form-control {
   padding-top: env(safe-area-inset-top, 24px) !important;
 }
 
+/* Prevent scroll interception by unfocused textareas */
+textarea:not(:focus) {
+  overflow-y: hidden !important;
+}
+
+textarea:focus {
+  overflow-y: auto !important;
+}
+
+
 
