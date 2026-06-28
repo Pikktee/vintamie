@@ -23,6 +23,7 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
   const [settingStatus, setSettingStatus] = useState(false);
   const [showDetected, setShowDetected] = useState(false); // collapsible "Automatisch erkannt"
   const [showPublishSheet, setShowPublishSheet] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
   const [startY, setStartY] = useState(0);
   const [currentY, setCurrentY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -110,6 +111,23 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
     const delayDebounceFn = setTimeout(saveDraft, 1200); // snappy but typing-friendly
     return () => clearTimeout(delayDebounceFn);
   }, [title, description, condition, price, hasChanges]);
+
+  // Tooltip onboarding for first-time Android app users
+  useEffect(() => {
+    if (!isAndroidApp) return;
+    const isShown = localStorage.getItem('velosia_detail_onboarding_shown');
+    if (!isShown) {
+      const timer = setTimeout(() => {
+        setShowTooltip(true);
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [isAndroidApp]);
+
+  const dismissTooltip = () => {
+    setShowTooltip(false);
+    localStorage.setItem('velosia_detail_onboarding_shown', 'true');
+  };
 
   const copyToClipboard = (text, fieldName) => {
     navigator.clipboard.writeText(text);
@@ -742,25 +760,39 @@ export default function DraftDetail({ draft, onBack, onUpdateSuccess }) {
                 </button>
               )}
               {isAndroidApp && (
-                <button
-                  onClick={() => setShowPublishSheet(true)}
-                  className="detail-header-action-btn"
-                  title="Veröffentlichen / Status"
-                  aria-label="Veröffentlichen / Status"
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--primary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '8px',
-                    marginRight: '-8px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <Share2 size={20} />
-                </button>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => {
+                      setShowPublishSheet(true);
+                      dismissTooltip();
+                    }}
+                    className="detail-header-action-btn"
+                    title="Veröffentlichen / Status"
+                    aria-label="Veröffentlichen / Status"
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--primary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '8px',
+                      marginRight: '-8px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Share2 size={20} />
+                  </button>
+                  {showTooltip && (
+                    <div className="publish-onboarding-tooltip" onClick={dismissTooltip}>
+                      <div className="tooltip-arrow" />
+                      <div className="tooltip-inner">
+                        <p>Tippe hier, um dein Angebot auf Vinted oder Kleinanzeigen einzustellen!</p>
+                        <button onClick={(e) => { e.stopPropagation(); dismissTooltip(); }}>Verstanden</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>

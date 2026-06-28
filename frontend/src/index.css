@@ -4423,6 +4423,73 @@ textarea:focus {
   flex-shrink: 0;
 }
 
+/* Publish Onboarding Tooltip */
+.publish-onboarding-tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: -8px;
+  z-index: 200;
+  width: 220px;
+  background: rgba(22, 27, 38, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--primary);
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(9, 176, 183, 0.2);
+  padding: 0.85rem 1rem;
+  box-sizing: border-box;
+  animation: tooltipFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.publish-onboarding-tooltip .tooltip-arrow {
+  position: absolute;
+  top: -6px;
+  right: 18px;
+  width: 10px;
+  height: 10px;
+  background: rgba(22, 27, 38, 0.95);
+  border-left: 1px solid var(--primary);
+  border-top: 1px solid var(--primary);
+  transform: rotate(45deg);
+}
+
+.publish-onboarding-tooltip .tooltip-inner p {
+  margin: 0 0 0.6rem 0;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+  font-weight: 500;
+  text-align: left;
+}
+
+.publish-onboarding-tooltip .tooltip-inner button {
+  width: 100%;
+  padding: 0.4rem 0;
+  border-radius: 6px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.publish-onboarding-tooltip .tooltip-inner button:hover {
+  opacity: 0.9;
+}
+
 
 
 
