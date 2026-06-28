@@ -115,7 +115,7 @@ def run_migrations():
 
 run_migrations()
 
-app = FastAPI(title="Velosia API", version="2.7.22")
+app = FastAPI(title="Velosia API", version="2.7.23")
 
 UPLOAD_DIR = "/data/uploads" if os.path.isdir("/data") else "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -128,7 +128,15 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-App-Version"],
 )
+
+@app.middleware("http")
+async def add_app_version_header(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-App-Version"] = app.version
+    return response
+
 
 # Mount static uploads directory
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")

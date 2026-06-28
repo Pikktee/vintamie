@@ -5,6 +5,22 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || (
     : `${window.location.protocol}//${window.location.hostname}:8000`
 );
 
+// Global fetch interceptor to capture X-App-Version headers for update checks
+const originalFetch = window.fetch;
+window.fetch = async (...args) => {
+  const response = await originalFetch(...args);
+  try {
+    const serverVersion = response.headers.get('X-App-Version');
+    if (serverVersion) {
+      window.dispatchEvent(new CustomEvent('velosia-version-received', { detail: serverVersion }));
+    }
+  } catch (e) {
+    /* ignore header read errors */
+  }
+  return response;
+};
+
+
 // Retrieve saved token
 let authToken = localStorage.getItem('velosia_token') || null;
 

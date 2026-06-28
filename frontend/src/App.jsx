@@ -13,6 +13,7 @@ import LegalPage from './components/LegalPage';
 import BugReportModal from './components/BugReportModal';
 import IssueManagement from './components/IssueManagement';
 import { getDrafts, deleteDraft, isAuthenticated, setAuthToken, getMe, uploadAndAnalyze, uploadTurbo, refreshAllListings } from './utils/api';
+import { version } from '../package.json';
 
 
 export default function App() {
@@ -43,6 +44,8 @@ export default function App() {
   // IDs of drafts just created by a turbo batch — they flash once in the list so
   // the user sees which offers were generated, then the marking clears itself.
   const [flashDraftIds, setFlashDraftIds] = useState([]);
+  const [showUpdateBanner, setShowUpdateBanner] = useState(false);
+  const [latestVersion, setLatestVersion] = useState(version);
   const longPressTimer = useRef(null);
   // When the user publishes via the platform WebView, DraftDetail stores the draft
   // id here. On returning to the dashboard (the WebView reloads fresh), we restore
@@ -109,6 +112,19 @@ export default function App() {
       delete window.onAndroidBack;
     };
   }, [view, prevView, capturedImages, turboMode]);
+
+  // Handle server app update detection from API headers
+  useEffect(() => {
+    const handleVersionReceived = (e) => {
+      const serverVersion = e.detail;
+      if (serverVersion && serverVersion !== version) {
+        setLatestVersion(serverVersion);
+        setShowUpdateBanner(true);
+      }
+    };
+    window.addEventListener('velosia-version-received', handleVersionReceived);
+    return () => window.removeEventListener('velosia-version-received', handleVersionReceived);
+  }, []);
 
   // After returning from a platform publish WebView, the dashboard reloads fresh.
   // Once the drafts are loaded, restore the detail view of the draft we were
@@ -752,6 +768,21 @@ export default function App() {
           <div className="spark sp-1" />
           <div className="spark sp-2" />
           <div className="spark sp-3" />
+        </div>
+      )}
+
+      {showUpdateBanner && (
+        <div className="update-toast-banner">
+          <div className="update-toast-content">
+            <Sparkles size={16} style={{ color: 'var(--primary)' }} />
+            <span>Update verfügbar (v{latestVersion})</span>
+          </div>
+          <button 
+            className="btn btn-primary update-toast-btn"
+            onClick={() => window.location.reload(true)}
+          >
+            Aktualisieren
+          </button>
         </div>
       )}
 
