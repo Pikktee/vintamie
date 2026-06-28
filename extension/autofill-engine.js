@@ -36,7 +36,7 @@
   // and in the extension it is a persistent content script — never redefine.
   if (window.__velosia && window.__velosia.__loaded) return;
 
-  var VERSION = "2.7.45";
+  var VERSION = "2.7.46";
 
   // ----------------------------------------------------------------------------
   // Low level helpers
@@ -1800,11 +1800,10 @@
 
   // Gently highlight the publish button once the form is filled (manual mode): scroll
   // it into view and overlay a pulsing ring so the user knows what to tap. The ring is
-  // a standalone element — completely immune to the platform's CSS that otherwise
-  // overrides box-shadow on the button itself.
+  // a standalone element animated entirely via the Web Animations API (element.animate)
+  // — no CSS @keyframes, no stylesheets, nothing the platform can remove or override.
   function pointToButton(btn) {
     if (!btn) return;
-    injectStyleOnce();
     try { btn.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) {}
 
     try {
@@ -1815,8 +1814,7 @@
       ring.id = "velosia-pulse-ring";
       ring.style.cssText = [
         "position:absolute", "z-index:2147483645", "pointer-events:none",
-        "border-radius:8px", "box-sizing:border-box",
-        "animation:velosia-pulse 1.4s infinite"
+        "border-radius:8px", "box-sizing:border-box"
       ].join(";");
 
       function place() {
@@ -1828,6 +1826,25 @@
       }
       place();
       (document.body || document.documentElement).appendChild(ring);
+
+      // Animate entirely via JS — immune to any CSS interference.
+      if (ring.animate) {
+        ring.animate([
+          { boxShadow: "0 0 0 4px rgba(9,176,183,.6)" },
+          { boxShadow: "0 0 0 10px rgba(9,176,183,.12)" }
+        ], { duration: 1400, iterations: Infinity, direction: "alternate", easing: "ease-in-out" });
+      } else {
+        // Fallback: manual JS toggle for very old WebViews without WAAPI.
+        ring.style.transition = "box-shadow .7s ease";
+        ring.style.boxShadow = "0 0 0 4px rgba(9,176,183,.6)";
+        var phase = false;
+        setInterval(function () {
+          phase = !phase;
+          ring.style.boxShadow = phase
+            ? "0 0 0 10px rgba(9,176,183,.12)"
+            : "0 0 0 4px rgba(9,176,183,.6)";
+        }, 700);
+      }
 
       window.addEventListener("scroll", place, { passive: true });
       window.addEventListener("resize", place);
