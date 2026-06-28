@@ -524,7 +524,7 @@ export default function Settings({ user, onLogout, onUpdateUser, onShowBugReport
             }}
           >
             <HelpCircle size={18} style={{ color: 'var(--primary)' }} />
-            <span>Problem melden / Feedback geben</span>
+            <span>Problem melden</span>
           </button>
         </div>
 
