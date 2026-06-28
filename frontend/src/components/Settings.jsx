@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, LogOut, Trash2, AlertTriangle, Save, HelpCircle, Check, Shield, Sparkles, Euro, MapPin, Sliders, Zap, Users, ClipboardList, Bug, ChevronRight } from 'lucide-react';
+import { User, LogOut, Trash2, AlertTriangle, Save, HelpCircle, Check, Shield, Sparkles, Euro, MapPin, Sliders, Zap, Users, ClipboardList, Bug, ChevronRight, RefreshCw, AlertCircle } from 'lucide-react';
 import { deleteUserAccount, updateMe } from '../utils/api';
 import { version } from '../../package.json';
 
@@ -36,6 +36,7 @@ export default function Settings({ user, onLogout, onUpdateUser, onShowBugReport
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [hasChanges, setHasChanges] = useState(false);
   
   // Local state for settings form
   const [aiTone, setAiTone] = useState('locker');
@@ -85,8 +86,7 @@ export default function Settings({ user, onLogout, onUpdateUser, onShowBugReport
     setAiTone(presetKeyForText(text));
   };
 
-  const handleSave = async (e) => {
-    e.preventDefault();
+  const saveSettings = async () => {
     setSaving(true);
     setError('');
     setSuccess(false);
@@ -107,7 +107,7 @@ export default function Settings({ user, onLogout, onUpdateUser, onShowBugReport
       if (onUpdateUser) {
         onUpdateUser(updatedUser);
       }
-      setTimeout(() => setSuccess(false), 3000);
+      setTimeout(() => setSuccess(false), 2000);
     } catch (err) {
       console.error(err);
       setError('Fehler beim Speichern der Einstellungen.');
@@ -115,6 +115,37 @@ export default function Settings({ user, onLogout, onUpdateUser, onShowBugReport
       setSaving(false);
     }
   };
+
+  const handleSave = (e) => {
+    if (e) e.preventDefault();
+    if (hasChanges) {
+      saveSettings();
+    }
+  };
+
+  // Track hasChanges by comparing current values to user values
+  useEffect(() => {
+    if (!user) return;
+    const hasDiff = 
+      aiTone !== (user.ai_tone || 'locker') ||
+      aiIntro !== (user.ai_intro || '') ||
+      aiCustomTone !== (user.ai_custom_tone || '') ||
+      aiCustomFooter !== (user.ai_custom_footer || '') ||
+      Number(pricingOffset) !== (user.pricing_offset || 0) ||
+      defaultZip !== (user.default_zip || '') ||
+      defaultShipping !== (user.default_shipping || '') ||
+      autoSubmit !== (user.auto_submit || false);
+    
+    setHasChanges(hasDiff);
+  }, [aiTone, aiIntro, aiCustomTone, aiCustomFooter, pricingOffset, defaultZip, defaultShipping, autoSubmit, user]);
+
+  // Debounced auto-save effect
+  useEffect(() => {
+    if (!hasChanges) return;
+    setSaving(true);
+    const delayDebounceFn = setTimeout(saveSettings, 1000); // save 1 second after last change
+    return () => clearTimeout(delayDebounceFn);
+  }, [aiTone, aiIntro, aiCustomTone, aiCustomFooter, pricingOffset, defaultZip, defaultShipping, autoSubmit, hasChanges]);
 
   const handleDeleteAccount = async () => {
     setDeleting(true);
@@ -172,8 +203,28 @@ export default function Settings({ user, onLogout, onUpdateUser, onShowBugReport
         }
       `}</style>
       <div className="profile-container">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-          <h2 className="page-title">Profil &amp; Einstellungen</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '1.5rem', width: '100%' }}>
+          <h2 className="page-title" style={{ margin: 0 }}>Profil &amp; Einstellungen</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: '500' }}>
+            {saving && (
+              <>
+                <RefreshCw size={14} className="spin" style={{ color: 'var(--primary)' }} />
+                <span>Speichert...</span>
+              </>
+            )}
+            {success && (
+              <>
+                <Check size={14} style={{ color: 'var(--primary)' }} />
+                <span style={{ color: 'var(--primary)' }}>Gespeichert</span>
+              </>
+            )}
+            {error && (
+              <>
+                <AlertCircle size={14} style={{ color: 'var(--danger)' }} />
+                <span style={{ color: 'var(--danger)' }}>Fehler</span>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Settings Form wrapped around a 2-column grid */}
@@ -399,30 +450,12 @@ export default function Settings({ user, onLogout, onUpdateUser, onShowBugReport
                 </div>
               </div>
 
-              {/* Save Button */}
-              <div style={{ marginTop: '0.5rem' }}>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="btn btn-primary"
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', minHeight: '48px' }}
-                >
-                  {success ? (
-                    <>
-                      <Check size={18} style={{ color: '#000' }} />
-                      Gespeichert!
-                    </>
-                  ) : (
-                    <>
-                      <Save size={18} />
-                      {saving ? 'Speichert...' : 'Einstellungen speichern'}
-                    </>
-                  )}
-                </button>
-                {error && (
-                  <p style={{ color: '#fca5a5', fontSize: '0.85rem', marginTop: '0.5rem', textAlign: 'center' }}>{error}</p>
-                )}
-              </div>
+              {/* Error display */}
+              {error && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <p style={{ color: '#fca5a5', fontSize: '0.85rem', textAlign: 'center' }}>{error}</p>
+                </div>
+              )}
 
               {/* Admin Section */}
               {user.is_admin && (
