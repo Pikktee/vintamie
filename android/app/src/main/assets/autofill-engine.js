@@ -36,7 +36,7 @@
   // and in the extension it is a persistent content script — never redefine.
   if (window.__velosia && window.__velosia.__loaded) return;
 
-  var VERSION = "2.7.43";
+  var VERSION = "2.7.44";
 
   // ----------------------------------------------------------------------------
   // Low level helpers
@@ -1644,15 +1644,12 @@
 
   function findSubmitButton(platform) {
     if (platform === "vinted") {
-      return document.querySelector("[data-testid*='submit']") ||
-             document.querySelector("[data-testid*='add']") ||
-             document.querySelector("[data-testid*='publish']") ||
-             document.querySelector("[data-testid*='save']") ||
-             findButtonByText(["hinzufügen", "ajouter", "add", "hochladen", "einstellen", "veröffentlichen", "veroffentlichen", "speichern", "erstellen", "bestätigen"]) ||
+      return document.querySelector("button[data-testid*='submit']") ||
+             findButtonByText(["hochladen", "einstellen", "veröffentlichen", "veroffentlichen"]) ||
              document.querySelector("button[type='submit']");
     }
     return document.querySelector("#pstad-submit") ||
-           findButtonByText(["anzeige aufgeben", "veröffentlichen", "veroffentlichen", "einstellen", "hochladen", "speichern", "erstellen", "bestätigen"]) ||
+           findButtonByText(["anzeige aufgeben", "veröffentlichen", "veroffentlichen", "einstellen"]) ||
            document.querySelector("button[type='submit']");
   }
 
@@ -1689,17 +1686,9 @@
       s.id = "velosia-style";
       s.textContent =
         "@keyframes velosia-spin{to{transform:rotate(360deg)}}" +
-        "@keyframes velosia-pulse{0%,100%{box-shadow:0 0 0 3px rgba(9,176,183,.75) !important;outline:3px solid rgba(9,176,183,.75) !important;outline-offset:1px !important}50%{box-shadow:0 0 0 8px rgba(9,176,183,.15) !important;outline:8px solid rgba(9,176,183,.15) !important;outline-offset:5px !important}}" +
+        "@keyframes velosia-pulse{0%,100%{box-shadow:0 0 0 4px rgba(9,176,183,.6)}50%{box-shadow:0 0 0 10px rgba(9,176,183,.12)}}" +
         "@keyframes velosia-breathe{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.08);opacity:1}}" +
-        "@keyframes velosia-fade{from{opacity:0}to{opacity:1}}" +
-        "body [data-velosia-pulsing='true'],body [data-velosia-pulsing='true']:disabled,body [data-velosia-pulsing='true']:hover,body [data-velosia-pulsing='true']:active,[data-velosia-pulsing='true']{" +
-          "animation:velosia-pulse 1.4s infinite !important;" +
-          "outline:3px solid rgba(9,176,183,.75) !important;" +
-          "outline-offset:1px !important;" +
-          "border-radius:8px !important;" +
-          "overflow:visible !important;" +
-          "box-shadow:0 0 0 3px rgba(9,176,183,.75) !important;" +
-        "}";
+        "@keyframes velosia-fade{from{opacity:0}to{opacity:1}}";
       (document.head || document.documentElement).appendChild(s);
     } catch (e) {}
   }
@@ -1813,30 +1802,11 @@
   // it into view and apply a soft pulsing ring so the user knows what to tap. We no
   // longer render a separate bouncing "Hier veröffentlichen" label — the pulsing
   // button alone is enough and far less intrusive.
-  function pointToButton(btn, platform) {
+  function pointToButton(btn) {
     if (!btn) return;
     injectStyleOnce();
     try { btn.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) {}
-    
-    console.log("Velosia: pointToButton activated. Platform =", platform, "btn =", btn);
-    
-    // Periodically re-find and apply pulsing attribute to ensure it persists if React re-renders/replaces the button.
-    // We only set the attribute when it is missing to avoid restarting the animation timeline on every tick.
-    var count = 0;
-    var interval = setInterval(function () {
-      var currentBtn = findSubmitButton(platform) || btn;
-      if (currentBtn) {
-        try {
-          if (currentBtn.getAttribute("data-velosia-pulsing") !== "true") {
-            console.log("Velosia: Applying data-velosia-pulsing attribute to button:", currentBtn);
-            currentBtn.setAttribute("data-velosia-pulsing", "true");
-            currentBtn.style.borderRadius = currentBtn.style.borderRadius || "8px";
-          }
-        } catch (e) {}
-      }
-      count++;
-      if (count > 120) clearInterval(interval); // Stop after 1 minute (120 * 500ms)
-    }, 500);
+    try { btn.style.animation = "velosia-pulse 1.4s infinite"; btn.style.borderRadius = btn.style.borderRadius || "8px"; } catch (e) {}
   }
 
   function showOverlay(result, autoSubmit) {
@@ -2459,7 +2429,7 @@
       if (showUi) {
         removeBackdrop();
         showOverlay(result, autoSubmit);
-        pointToButton(findSubmitButton(platform), platform);
+        pointToButton(findSubmitButton(platform));
       }
     }
     return result;
